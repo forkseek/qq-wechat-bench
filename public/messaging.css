@@ -1,0 +1,12 @@
+.message-composer{display:grid;gap:12px;background:var(--card,#fff);border:1px solid var(--line);border-radius:14px;padding:18px;margin:22px 0}
+.message-composer textarea{width:100%;min-height:100px}
+.message-composer .composer-footer{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.message-composer .composer-footer button{margin-left:auto}
+.message-header select{min-width:0;max-width:100%}
+.log-list{display:grid;gap:12px}
+.log-entry{padding:18px}
+.maintenance-row{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.connection-badges{flex-wrap:wrap;justify-content:flex-end}
+.settings-actions{flex-wrap:wrap}
+@media(max-width:640px){.message-header{flex-wrap:wrap}.message-header select{width:100%}.message-composer{padding:12px}.maintenance-row{font-size:12px}}
+.media-preview { display: block; max-width: 100%; max-height: 65vh; margin: auto; object-fit: contain; }

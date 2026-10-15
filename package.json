@@ -1,0 +1,19 @@
+{
+  "name": "qq-school-workbench",
+  "version": "0.5.2",
+  "private": true,
+  "type": "module",
+  "description": "本机 QQ 与微信聊天、通知、待办和数据库处理工作台",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "dependencies": {
+    "node-cron": "4.6.0",
+    "pino": "10.4.0"
+  }
+}

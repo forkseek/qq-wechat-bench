@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QQ 登录 · 讯课</title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/style.css"><script src="/qq-login.js" defer></script></head>
+<body>
+  <main class="empty-state">
+    <h1>连接你的 QQ</h1>
+    <p id="scope"></p>
+    <p>独立采集需要用手机 QQ 扫码确认。桌面 QQ 正在运行时，工作台会优先保留桌面登录，并暂停独立采集；需要采集时请先退出桌面 QQ。</p>
+    <img id="qr" width="294" height="294" alt="QQ 登录二维码" hidden>
+    <p id="status" role="status">正在检查登录状态…</p>
+    <button id="refresh" class="button" hidden>刷新二维码</button>
+    <button id="start" class="button" hidden>启动 QQ 采集</button>
+    <button id="stop" class="button secondary" hidden>停止采集，使用桌面 QQ</button>
+    <p><a href="/">返回工作台</a></p>
+  </main>
+</body></html>

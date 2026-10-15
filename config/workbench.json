@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "server": {
+    "host": "127.0.0.1",
+    "port": 4318,
+    "requestBodyBytes": 1048576,
+    "requestTimeoutMs": 70000,
+    "headersTimeoutMs": 10000
+  },
+  "qq": {
+    "webuiPort": 6099,
+    "pollIntervalMs": 15000,
+    "launchRetryMinutes": [3, 5, 10],
+    "backfillMinutes": 30
+  },
+  "messaging": {
+    "pollIntervalMs": 15000,
+    "requestTimeoutMs": 120000,
+    "maxAttachmentBytes": 52428800,
+    "maxAttachments": 5
+  },
+  "maintenance": {
+    "enabled": true,
+    "analysisMinutes": 5,
+    "backupHour": 4,
+    "optimizeMinutes": 60,
+    "timezone": "Asia/Shanghai"
+  },
+  "ui": {
+    "refreshIntervalMs": 5000,
+    "qqLoginPollIntervalMs": 4000
+  },
+  "modelPresets": [
+    {
+      "id": "deepseek",
+      "label": "DeepSeek",
+      "baseUrl": "https://api.deepseek.com",
+      "name": "deepseek-flash"
+    }
+  ]
+}

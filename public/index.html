@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#163629">
+  <title>讯课 · QQ 与微信工作台</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/messaging.css">
+  <script src="/app.js" defer></script>
+</head>
+<body class="no-ai">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="讯课首页"><span class="brand-mark">讯</span><span>讯课<small>QQ 与微信工作台</small></span></a>
+      <p class="nav-label">学习工作区</p>
+      <nav aria-label="工作台导航">
+        <span class="nav-indicator" aria-hidden="true"></span>
+        <button class="nav-item active" data-view="tasks"><span class="nav-icon">◎</span>待办清单<span id="nav-count" class="nav-count">0</span></button>
+        <button class="nav-item" data-view="messages"><span class="nav-icon">▤</span>聊天与消息</button>
+        <button class="nav-item" data-view="conversations"><span class="nav-icon">◇</span>会话管理</button>
+        <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>接入设置</button>
+        <button class="nav-item" data-view="logs"><span class="nav-icon">◷</span>运行日志</button>
+        <button class="nav-item" data-view="maintenance"><span class="nav-icon">▦</span>数据与定时处理</button>
+      </nav>
+      <div class="sidebar-note"><span class="small-dot"></span> 本机工作台<p>消息有出处<br>事情有着落</p></div>
+      <button id="profile-button" class="profile-button"><span class="avatar">我</span><span id="profile-label">我的信息与规则</span><span>↗</span></button>
+    </aside>
+    <section class="workspace">
+      <header class="topbar"><div><span class="eyebrow">PERSONAL STUDY DESK</span><p id="today-label"></p></div><div class="connection-badges"><span id="qq-status" class="status-pill">QQ 未连接</span><span id="wechat-status" class="status-pill">微信等待登录</span><span id="ai-status" class="status-pill">AI 未配置</span></div></header>
+      <div class="work-area">
+        <main id="main" tabindex="-1"><div class="loading">正在打开你的工作台…</div></main>
+        <aside class="assistant-panel" aria-label="通知助手">
+          <header class="assistant-heading"><span class="assistant-symbol">✦</span><div><h2>通知助手</h2><p>一起理清下一步</p></div></header>
+          <label class="scope-label" for="chat-scope">对话范围</label><select id="chat-scope"><option value="all">所有已关注会话与手动待办</option></select>
+          <div id="chat-log" class="chat-log" aria-live="polite"></div>
+          <div class="chat-suggestions"><button data-prompt="今天我需要处理哪些事情？">今天需要做什么</button><button data-prompt="哪些通知的截止时间还不明确？">哪些时间待确认</button></div>
+          <form id="chat-form"><label class="sr-only" for="chat-input">向通知助手提问</label><textarea id="chat-input" placeholder="聊聊通知或学习安排…" rows="2" maxlength="3000"></textarea><div class="composer-footer"><span id="chat-model-label"></span><button id="chat-send" type="submit" aria-label="发送给通知助手">↑</button></div></form>
+          <p class="assistant-footnote">任务调整可在详情中确认，长期规则单独保存。</p>
+        </aside>
+      </div>
+    </section>
+  </div>
+  <dialog id="detail-dialog" aria-labelledby="dialog-title"><div id="dialog-content"></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <noscript>请启用 JavaScript 使用工作台。</noscript>
+</body>
+</html>

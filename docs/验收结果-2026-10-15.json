@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "at": "2026-10-15T05:20:20.399Z",
+  "version": "0.5.2",
+  "verdict": "passed_with_stated_scope",
+  "automatedTests": {
+    "passed": 80,
+    "failed": 0,
+    "skipped": 0,
+    "addedFaultTests": 9
+  },
+  "syntax": {
+    "javascriptFiles": 35,
+    "windowsPowerShellScripts": 5,
+    "pythonScripts": 2
+  },
+  "runtime": {
+    "node": "v24.18.0",
+    "npm": "11.16.0",
+    "windows": "Microsoft Windows 11 家庭版 中文版",
+    "osVersion": "10.0.26200",
+    "powershell": [
+      "5.1.26100.9711",
+      "7.6.5"
+    ],
+    "python": "3.12.10",
+    "clients": [
+      {
+        "name": "QQ",
+        "version": "9.9.20.36330"
+      },
+      {
+        "name": "Weixin",
+        "version": "4.1.13.65"
+      },
+      {
+        "name": "WeChatAppEx x64",
+        "version": "2.5.6.25558"
+      }
+    ]
+  },
+  "npmKnownVulnerabilities": 0,
+  "pythonDependencyMismatches": [],
+  "browserChecks": [
+    {
+      "evidence": "final-audit-chromium-desktop.json",
+      "draftPreserved": true,
+      "errors": [],
+      "lateNavigationSafe": true,
+      "latestLogFilterWins": true,
+      "latestMessageResponseWins": true,
+      "messageTextEscaped": true,
+      "networkErrorHandled": true,
+      "networkRecovery": true,
+      "oldMessageErrorIgnored": true,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      },
+      "views": [
+        {
+          "heading": "待办清单",
+          "overflow": false,
+          "view": "tasks"
+        },
+        {
+          "heading": "聊天与消息",
+          "overflow": false,
+          "view": "messages"
+        },
+        {
+          "heading": "拉取的群聊",
+          "overflow": false,
+          "view": "conversations"
+        },
+        {
+          "heading": "接入设置",
+          "overflow": false,
+          "view": "settings"
+        },
+        {
+          "heading": "运行日志",
+          "overflow": false,
+          "view": "logs"
+        },
+        {
+          "heading": "数据与定时处理",
+          "overflow": false,
+          "view": "maintenance"
+        }
+      ]
+    },
+    {
+      "evidence": "final-audit-chromium-mobile.json",
+      "draftPreserved": true,
+      "errors": [],
+      "lateNavigationSafe": true,
+      "latestLogFilterWins": true,
+      "latestMessageResponseWins": true,
+      "messageTextEscaped": true,
+      "networkErrorHandled": true,
+      "networkRecovery": true,
+      "oldMessageErrorIgnored": true,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "viewport": {
+        "height": 844,
+        "width": 390
+      },
+      "views": [
+        {
+          "heading": "待办清单",
+          "overflow": false,
+          "view": "tasks"
+        },
+        {
+          "heading": "聊天与消息",
+          "overflow": false,
+          "view": "messages"
+        },
+        {
+          "heading": "拉取的群聊",
+          "overflow": false,
+          "view": "conversations"
+        },
+        {
+          "heading": "接入设置",
+          "overflow": false,
+          "view": "settings"
+        },
+        {
+          "heading": "运行日志",
+          "overflow": false,
+          "view": "logs"
+        },
+        {
+          "heading": "数据与定时处理",
+          "overflow": false,
+          "view": "maintenance"
+        }
+      ]
+    },
+    {
+      "evidence": "final-audit-edge-desktop.json",
+      "draftPreserved": true,
+      "errors": [],
+      "lateNavigationSafe": true,
+      "latestLogFilterWins": true,
+      "latestMessageResponseWins": true,
+      "messageTextEscaped": true,
+      "networkErrorHandled": true,
+      "networkRecovery": true,
+      "oldMessageErrorIgnored": true,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0",
+      "viewport": {
+        "height": 900,
+        "width": 1440
+      },
+      "views": [
+        {
+          "heading": "待办清单",
+          "overflow": false,
+          "view": "tasks"
+        },
+        {
+          "heading": "聊天与消息",
+          "overflow": false,
+          "view": "messages"
+        },
+        {
+          "heading": "拉取的群聊",
+          "overflow": false,
+          "view": "conversations"
+        },
+        {
+          "heading": "接入设置",
+          "overflow": false,
+          "view": "settings"
+        },
+        {
+          "heading": "运行日志",
+          "overflow": false,
+          "view": "logs"
+        },
+        {
+          "heading": "数据与定时处理",
+          "overflow": false,
+          "view": "maintenance"
+        }
+      ]
+    }
+  ],
+  "load": {
+    "at": "2026-10-15T05:07:57.629Z",
+    "conversations": 500,
+    "messages": 10000,
+    "tasks": 100,
+    "requests": 400,
+    "concurrency": 20,
+    "pollingCycles": 21,
+    "elapsedMs": 6059,
+    "latencyMs": {
+      "median": 291,
+      "p95": 320,
+      "max": 324
+    },
+    "beforeMemory": {
+      "rss": 98742272,
+      "heapTotal": 31170560,
+      "heapUsed": 15583960,
+      "external": 4460310,
+      "arrayBuffers": 343984
+    },
+    "afterMemory": {
+      "rss": 126455808,
+      "heapTotal": 52260864,
+      "heapUsed": 16706440,
+      "external": 5682438,
+      "arrayBuffers": 1500536
+    },
+    "quickCheck": "ok",
+    "consistentBackup": true,
+    "duplicates": 0,
+    "nativeSends": 0,
+    "realModelCalls": 0
+  },
+  "deployment": {
+    "version": "0.5.2",
+    "counts": {
+      "conversations": 407,
+      "messages": 160,
+      "tasks": 21,
+      "outbox": 6
+    },
+    "preserved": {
+      "configs": true,
+      "content": true,
+      "messages": true,
+      "tasks": true,
+      "outbox": true,
+      "monitoredWechatGroups": true
+    },
+    "database": {
+      "quickCheck": "ok",
+      "foreignKeyErrors": 0,
+      "journalMode": "wal"
+    },
+    "wechatOnline": true,
+    "monitoredWechatGroups": 1,
+    "qqPhase": "desktop_in_use",
+    "qqKeepRunning": false,
+    "loggingHealthy": true
+  },
+  "clientProcesses": {
+    "before": 22,
+    "after": 22,
+    "preserved": 22,
+    "officialQQPreserved": 8,
+    "officialWeixinPreserved": 6
+  },
+  "backup": {
+    "at": "2026-10-15T05:15:47.286Z",
+    "filename": "workbench-2026-10-15T05-15-47-273Z-c60e04c4.sqlite",
+    "bytes": 409600,
+    "counts": {
+      "messages": 160,
+      "tasks": 21,
+      "outbox": 6
+    },
+    "quickCheck": "ok"
+  },
+  "sourceHashes": {
+    "server.mjs": "726883afbcbcb5990c273925fbce4935b37456e51a9970536a802dbb21723375",
+    "lib/wechat-bridge.mjs": "c85674a881c54066521819230503f973af0a06beb65cd5fce0ba6c3ab0bbceab",
+    "lib/messaging.mjs": "648f2fd6361a06ac18cde3d4172e0d6dcd478797da35763fa8d3f80f795b40fb",
+    "lib/store.mjs": "6384c9c5a3bac572b1df8595eea395f3b7518454152c5d7eeb1e4be03ee8a41a",
+    "lib/maintenance.mjs": "d326453c86a30bc693f1a4a3fa9de9c4a46b87b97cd4568063c04129b0f5b84e",
+    "lib/event-log.mjs": "040cd01285eb5a5c5718fa1687c4f82c4b76ac9dd2ab69e17501080c3df5d7f4",
+    "public/app.js": "4603b3b849a8117188232dcbb5d314cc8b89f574b2c9a807b39c66ac53819a0a",
+    "setup-wechat.ps1": "6e755d538ec564347016ad4492034880ad61d09d1b25ab24616e69d429aeb88d",
+    "scripts/check.mjs": "21de4f83d5bd3db1d2ab07d1c7abb30362fde6c83a2a64e3a3db67a6446cbc0d",
+    "tests/stability.test.mjs": "80dd2b4bdd0e6387c76559769481b0654ef5b71f0cf52884e6ae627fcaa97f84",
+    "package.json": "a7aca1aa6bd8339f00156c0274b6038d6d25d4c128db128ff74febc183648c57",
+    "package-lock.json": "f60476a19df6169e3d56eac6e3960b72d7cc92397ccdb910c6b3ff9b76a3270b"
+  },
+  "limitations": [
+    "Short load test, not a multi-day soak",
+    "QQ standalone capture remains paused while desktop QQ is in use",
+    "No real outgoing message or model test was initiated",
+    "No Firefox, Safari, iOS, Android or other OS verification",
+    "Client versions beyond the installed versions were not verified"
+  ]
+}
