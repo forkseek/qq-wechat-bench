@@ -222,8 +222,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 14183,
-      "sha256": "4276685cea1da44f85521c7401f983e59d0282f23d37f7f6bfa8227038d7fcbc"
+      "bytes": 16573,
+      "sha256": "9164e7bd10855b7ac69274ac2045b306ee73f4f710c8c16416dc3127c0e1c3da"
     },
     {
       "path": "requirements-wechat.txt",
@@ -364,6 +364,56 @@
       "path": "打开工作台.cmd",
       "bytes": 105,
       "sha256": "61731ea5854c95d352629b8e4d8c92b98eb9a25ebe9b15f97a13c612df62c705"
+    },
+    {
+      "path": "docs/media/README.md",
+      "bytes": 1717,
+      "sha256": "bd1da1b4f6e4d9a17a3d305856b5db1fffcb57ce2e784883143b1ab6d05b67e6"
+    },
+    {
+      "path": "docs/media/groups.png",
+      "bytes": 667372,
+      "sha256": "b5bbd8417876b57e64d9bcd85c7265df9b7d3895270286d73b64521b3c6cbd92"
+    },
+    {
+      "path": "docs/media/logs.png",
+      "bytes": 586490,
+      "sha256": "56c158b51a55f2c2b3aac41ca5cede4ad80a367d179c282e365e3955b6e21626"
+    },
+    {
+      "path": "docs/media/maintenance.png",
+      "bytes": 592441,
+      "sha256": "ec6e345d4c34d1abc6f5cf25e9afd5fc79ba3ac35ee6518f6b92a2aae3fae21d"
+    },
+    {
+      "path": "docs/media/media-info.json",
+      "bytes": 2148,
+      "sha256": "bc82701b471b72649c1f0e7f09d21dfd7a04320912093d6ea4a78af940811aa0"
+    },
+    {
+      "path": "docs/media/messages.png",
+      "bytes": 595710,
+      "sha256": "1e08867551c92e84b583f170c0e11957130771e22e9f924ad9aa247992a54927"
+    },
+    {
+      "path": "docs/media/overview.png",
+      "bytes": 637190,
+      "sha256": "20ea43ca22efd46eb179939342e9fa598fc8115e676d560fc0d687666432aa40"
+    },
+    {
+      "path": "docs/media/qq-paused.png",
+      "bytes": 591453,
+      "sha256": "0ba23ca65625d4bee00e361e9acd01ff1778694979c5bff98b1094d1b0591fc1"
+    },
+    {
+      "path": "docs/media/task-source.png",
+      "bytes": 818278,
+      "sha256": "38f2db988e0bab829ccd667909d0419e391cf7cd13f316c82a3b9779f5c15aff"
+    },
+    {
+      "path": "docs/media/walkthrough.gif",
+      "bytes": 2965406,
+      "sha256": "e821cbd8f6a5b1e0d7e6219ddbfce070ce2024bdffe4ddbaf25f0c34939cebff"
     }
   ],
   "excluded": [
@@ -377,5 +427,12 @@
   "redactedDocumentation": [
     "docs/PC与安卓版方案.md"
   ],
-  "credentialScan": "passed"
+  "credentialScan": "passed",
+  "documentationUpdatedOn": "2026-10-15",
+  "documentationMedia": {
+    "directory": "docs/media",
+    "screenshots": 7,
+    "gifs": 1,
+    "isolatedSyntheticData": true
+  }
 }

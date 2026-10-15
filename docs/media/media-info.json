@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-10-15",
+  "environment": "isolated synthetic documentation fixture",
+  "mockConnections": true,
+  "mockModelOutput": true,
+  "realAccountDataUsed": false,
+  "realOutgoingMessages": 0,
+  "screenshots": [
+    {
+      "file": "groups.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 667372,
+      "sha256": "b5bbd8417876b57e64d9bcd85c7265df9b7d3895270286d73b64521b3c6cbd92"
+    },
+    {
+      "file": "logs.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 586490,
+      "sha256": "56c158b51a55f2c2b3aac41ca5cede4ad80a367d179c282e365e3955b6e21626"
+    },
+    {
+      "file": "maintenance.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 592441,
+      "sha256": "ec6e345d4c34d1abc6f5cf25e9afd5fc79ba3ac35ee6518f6b92a2aae3fae21d"
+    },
+    {
+      "file": "messages.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 595710,
+      "sha256": "1e08867551c92e84b583f170c0e11957130771e22e9f924ad9aa247992a54927"
+    },
+    {
+      "file": "overview.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 637190,
+      "sha256": "20ea43ca22efd46eb179939342e9fa598fc8115e676d560fc0d687666432aa40"
+    },
+    {
+      "file": "qq-paused.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 591453,
+      "sha256": "0ba23ca65625d4bee00e361e9acd01ff1778694979c5bff98b1094d1b0591fc1"
+    },
+    {
+      "file": "task-source.png",
+      "width": 1600,
+      "height": 1000,
+      "bytes": 818278,
+      "sha256": "38f2db988e0bab829ccd667909d0419e391cf7cd13f316c82a3b9779f5c15aff"
+    }
+  ],
+  "gif": {
+    "file": "walkthrough.gif",
+    "width": 1280,
+    "height": 800,
+    "frames": 75,
+    "durationMs": 15000,
+    "loop": 0,
+    "bytes": 2965406,
+    "sha256": "e821cbd8f6a5b1e0d7e6219ddbfce070ce2024bdffe4ddbaf25f0c34939cebff"
+  },
+  "coverage": [
+    "notifications",
+    "source-linked task details",
+    "human task completion",
+    "QQ and WeChat group management",
+    "SQLite backup and maintenance",
+    "logs",
+    "desktop QQ priority pause"
+  ]
+}
