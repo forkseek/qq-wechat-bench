@@ -120,15 +120,19 @@ test('Windows：PowerShell 与 Python 启动器在隔离服务中返回冲突原
   assert.equal(starts, 2);
 });
 
-test('工作台重启遇到桌面 QQ 时撤销常驻开关；桌面退出后仍等待人工开启', async t => {
+test('遇到桌面 QQ 时临时暂停采集并记住恢复意图；桌面退出后自动恢复，手动停止则不再恢复', async t => {
   let launches = 0;
   const { supervisor, bridge } = supervisorFixture(t, { launch: async () => { launches++; } });
   writeFileSync(supervisor.flag, 'enabled'); bridge.current = desktop;
-  await supervisor.tick(); assert.equal(supervisor.keepRunning, false); assert.equal(launches, 0);
+  await supervisor.tick(); assert.equal(supervisor.keepRunning, false); assert.equal(supervisor.pausedByDesktop, true); assert.equal(launches, 0);
   await assert.rejects(() => supervisor.resume(), error => error.status === 409);
   assert.equal(supervisor.keepRunning, false); assert.equal(launches, 0);
-  bridge.current = offline; await supervisor.tick(); assert.equal(launches, 0); assert.equal(supervisor.snapshot().blockedReason, undefined);
-  await supervisor.resume(); assert.equal(launches, 1);
+  bridge.current = offline; await supervisor.tick();
+  assert.equal(supervisor.keepRunning, true); assert.equal(supervisor.pausedByDesktop, false); assert.equal(launches, 1); assert.equal(supervisor.snapshot().blockedReason, undefined);
+  // 再次遇到桌面 QQ 时若用户明确手动停止，则桌面退出后不自动拉起。
+  bridge.current = desktop; await supervisor.tick(); assert.equal(supervisor.pausedByDesktop, true);
+  supervisor.pause(); assert.equal(supervisor.pausedByDesktop, false);
+  bridge.current = offline; await supervisor.tick(); assert.equal(launches, 1);
 });
 
 test('采集运行期间打开桌面 QQ：优先停止采集，而非桌面 QQ；停止后不再拉起', async t => {

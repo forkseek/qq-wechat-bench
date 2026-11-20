@@ -76,11 +76,14 @@ function assembleApp({ options, settings, dataDir, connection, capture, captureF
 
   const startupDir = options.startupDir || defaultStartupDir();
 
-  function state() {
+  function state({ compact = false } = {}) {
+    const allConversations = store.conversations();
     return { settings: publicSettings(settings), profile: store.profile(), model: publicModel(config), capture, connection: store.bridge(), qq: supervisor.snapshot(),
       wechat: messaging.wechatStatus, accounts: store.accounts(), maintenance: { config: maintenance.config, active: [...maintenance.active.keys()] },
       autostart: autostartEnabled(startupDir), logging: log.status(), runs: store.runs(5), pendingCount: store.pendingCount(),
-      conversations: store.conversations(), tasks: store.tasks().map(task => ({ ...task, sourceAt: store.sourceTime(task.sourceIds) })) };
+      conversationCount: allConversations.length,
+      conversations: compact ? allConversations.filter(value => value.monitored) : allConversations,
+      tasks: store.tasks().map(task => ({ ...task, sourceAt: store.sourceTime(task.sourceIds) })) };
   }
   // 添加或恢复拉取一个群：写入采集范围并保存，已有会话重新关注，QQ 在线时立即补拉。
   async function addGroup(value) {

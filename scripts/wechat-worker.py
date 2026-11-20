@@ -1,10 +1,13 @@
 """Private local adapter for wechatauto-replica; JSON IPC only, no secret output."""
+import collections
 import contextlib
+import gc
 import io
 import json
 import logging
 import os
 import hashlib
+import sqlite3
 from pathlib import Path
 import sys
 import time
@@ -35,19 +38,92 @@ class PrivateDB(OriginalDB):
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("workdir", str(PRIVATE / ("decrypted-media" if MEDIA_READER else "decrypted")))
         kwargs.setdefault("keys_file", str(PRIVATE / "keys" / ("media-current.json" if MEDIA_READER else "current.json")))
+        self._self_info_cache = None
+        self._self_info_at = 0.0
         super().__init__(*args, **kwargs)
 
     def _stable_key_dirs(self):
         return [str(PRIVATE / "keys")]
 
+    def _open_unlocked(self, rel: str):
+        last_err = None
+        for delay in (0.15, 0.3, 0.5):
+            try:
+                return super()._open_unlocked(rel)
+            except PermissionError as err:
+                last_err = err
+                gc.collect()
+                time.sleep(delay)
+        try:
+            return super()._open_unlocked(rel)
+        except PermissionError:
+            # Windows 上偶发文件占用导致原子替换失败时，回退到上一份已验证的可读副本，避免整轮读取中断。
+            dst = os.path.join(self.workdir, rel.replace(os.sep, "__"))
+            if os.path.exists(dst) and self._check_merged(dst):
+                conn = sqlite3.connect(f"file:{dst}?mode=ro", uri=True)
+                conn.row_factory = sqlite3.Row
+                text_factory = getattr(database, "_sqlite_text_factory", None)
+                if text_factory is not None:
+                    conn.text_factory = text_factory
+                return conn
+            raise last_err
+
+    def get_self_info(self) -> dict:
+        now = time.time()
+        if self._self_info_cache and now - self._self_info_at < 60:
+            return self._self_info_cache
+        for rel, db_path, _ in self._db_files:
+            if os.path.basename(db_path) != "contact.db":
+                continue
+            conn = self._open(rel)
+            try:
+                row = conn.execute(
+                    "SELECT username, nick_name, remark FROM contact WHERE username=? LIMIT 1",
+                    (self.wxid,),
+                ).fetchone()
+            finally:
+                conn.close()
+            if row:
+                self._self_info_cache = {"username": row[0], "nick_name": row[1], "remark": row[2]}
+                self._self_info_at = now
+                return self._self_info_cache
+        return {"username": self.wxid, "nick_name": "", "remark": ""}
+
 
 database.WeChatDB = PrivateDB
 wechat_db = None
 active_pid = None
-last_live_check = 0
+last_live_check = 0.0
+last_cfg_fallback = 0.0
+cfg_checked_pid = None
+cached_cfg_dword = None
+live_account = None
 live_proof = None
 operation_submitted = False
 operation_client = None
+
+
+def detect_live_account(process):
+    """通过当前微信主进程实际打开的 db_storage 句柄识别活跃登录账号，不依赖特定版本 DLL 偏移。"""
+    counts = collections.Counter()
+    try:
+        files = process.open_files()
+    except (psutil.Error, OSError):
+        return None, True
+    for item in files:
+        p = Path(item.path)
+        parts_lower = [part.lower() for part in p.parts]
+        if "db_storage" not in parts_lower:
+            continue
+        idx = parts_lower.index("db_storage")
+        if idx < 2:
+            continue
+        account_dir = Path(*p.parts[:idx])
+        if (account_dir / "db_storage").is_dir():
+            counts[(str(account_dir.parent), account_dir.name)] += 1
+    if not counts:
+        return None, False
+    return counts.most_common(1)[0][0], False
 
 
 def main_process():
@@ -65,28 +141,66 @@ def main_process():
 
 
 def connect():
-    global wechat_db, active_pid, last_live_check, live_proof
+    global wechat_db, active_pid, last_live_check, last_cfg_fallback, cfg_checked_pid, cached_cfg_dword, live_account, live_proof
     process = main_process()
     if process is None:
         wechat_db = None
         active_pid = None
+        live_account = None
         live_proof = None
+        cfg_checked_pid = None
+        cached_cfg_dword = None
         return {"available": True, "online": False, "phase": "client_closed", "error": "请正常打开并登录电脑微信"}
     if active_pid != process.pid:
         wechat_db = None
+        live_account = None
         live_proof = None
+        cfg_checked_pid = None
+        cached_cfg_dword = None
         active_pid = process.pid
-        last_live_check = 0
-    if time.time() - last_live_check > 15:
-        # Fresh proof binds the account to the current process, rather than an old cached DB.
-        live_proof = database.extract_master_key_from_cfg(process.pid)
-        last_live_check = time.time()
+        last_live_check = 0.0
+        last_cfg_fallback = 0.0
+    now = time.time()
+    access_denied = False
+    if now - last_live_check > 5 or live_account is None:
+        live_account, access_denied = detect_live_account(process)
+        last_live_check = now
+
+    if live_account:
+        db_root, account = live_account
+        if wechat_db is None or wechat_db.account != account or os.path.normcase(wechat_db.db_dir) != os.path.normcase(db_root):
+            wechat_db = PrivateDB(db_dir=db_root, account=account)
+            if cfg_checked_pid != process.pid:
+                cfg_checked_pid = process.pid
+                try:
+                    proof = database.extract_master_key_from_cfg(process.pid)
+                    cached_cfg_dword = proof[1] if proof else None
+                except Exception:
+                    cached_cfg_dword = None
+            if cached_cfg_dword is not None:
+                wechat_db.cfg_dword = cached_cfg_dword
+            # 真实打开一次库再上报就绪，确保密钥有效且可读。
+            wechat_db.get_sessions(limit=1)
+        profile = wechat_db.get_self_info()
+        return {"available": True, "online": True, "phase": "ready", "selfId": wechat_db.wxid, "name": profile.get("nick_name") or wechat_db.wxid,
+                "pid": active_pid, "version": wechatauto.__version__, "error": ""}
+
+    # 进程存在但未持有 db_storage 句柄（常见于未扫码登录，或权限受限）；按 30 秒节流尝试旧版 cfg 回退。
+    if now - last_cfg_fallback > 30:
+        try:
+            live_proof = database.extract_master_key_from_cfg(process.pid)
+        except Exception:
+            live_proof = None
+        last_cfg_fallback = now
     if not live_proof:
         wechat_db = None
-        return {"available": True, "online": False, "phase": "login_unconfirmed", "error": "发现微信进程，尚未验证登录账号与数据库兼容性"}
+        if access_denied:
+            return {"available": True, "online": False, "phase": "login_unconfirmed", "error": "发现微信进程，尚未验证登录账号与数据库兼容性"}
+        return {"available": True, "online": False, "phase": "waiting_login", "error": "等待电脑微信登录"}
     master_key, cfg_dword, wxid = live_proof
     if not wxid:
-        return {"available": True, "online": False, "phase": "waiting_login", "error": "等待微信登录"}
+        wechat_db = None
+        return {"available": True, "online": False, "phase": "waiting_login", "error": "等待电脑微信登录"}
     if wechat_db is None or wechat_db.wxid != wxid:
         db_root = database.auto_detect_db_dir()
         account = next((p.name for p in Path(db_root or ".").iterdir() if p.is_dir() and (p.name == wxid or p.name.startswith(wxid + "_"))), None)
@@ -94,7 +208,6 @@ def connect():
             return {"available": True, "online": False, "phase": "database_unavailable", "error": "已识别微信登录，需要定位对应的本机聊天数据"}
         wechat_db = PrivateDB(db_dir=db_root, account=account, master_key=master_key)
         wechat_db.cfg_dword = cfg_dword
-        # Open a real database before reporting ready.
         wechat_db.get_sessions(limit=1)
     profile = wechat_db.get_self_info()
     return {"available": True, "online": True, "phase": "ready", "selfId": wxid, "name": profile.get("nick_name") or wxid,
