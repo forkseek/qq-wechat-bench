@@ -3,9 +3,15 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--paper);
-  color: var(--ink);
   min-height: 100%;
+  color: var(--ink);
+  /* 素宣底色 + 极淡青黛水墨晕染（无噪点，柔和通透） */
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(ellipse 68% 52% at 92% 4%, var(--celadon-wash), transparent 65%),
+    radial-gradient(ellipse 56% 48% at 6% 96%, var(--mist-wash), transparent 68%),
+    radial-gradient(ellipse 40% 30% at 50% 0%, rgba(181, 54, 36, 0.018), transparent 70%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -13,27 +19,10 @@ h1, h2, h3, h4, p { margin: 0; }
 a { color: var(--pine); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-button, input, select, textarea {
-  font: inherit;
-  color: inherit;
-}
-
-button {
-  cursor: pointer;
-  border: 0;
-  background: none;
-  padding: 0;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-:focus-visible {
-  outline: 2px solid var(--pine-hi);
-  outline-offset: 2px;
-}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; background: none; padding: 0; }
+button:disabled { cursor: not-allowed; opacity: 0.48; }
+:focus-visible { outline: 2px solid var(--pine-hi); outline-offset: 2px; }
 
 /* ---------- 表单控件 ---------- */
 .input, .select, .textarea {
@@ -51,17 +40,11 @@ button:disabled {
   outline: none;
   border-color: var(--pine);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(30, 77, 59, 0.12);
+  box-shadow: 0 0 0 3px rgba(31, 79, 61, 0.11);
 }
 
-.textarea {
-  resize: vertical;
-  line-height: 1.65;
-}
-
-.select {
-  cursor: pointer;
-}
+.textarea { resize: vertical; line-height: 1.65; }
+.select { cursor: pointer; }
 
 /* ---------- 按钮规范（永不竖排折行） ---------- */
 .btn {
@@ -83,7 +66,7 @@ button:disabled {
 
 .btn-primary {
   background: var(--pine);
-  color: #f8f5ee;
+  color: #faf7f0;
   border: 1px solid var(--pine);
 }
 .btn-primary:hover:not(:disabled) { background: var(--pine-hi); border-color: var(--pine-hi); }
@@ -109,10 +92,7 @@ button:disabled {
 }
 .btn-danger:hover:not(:disabled) { background: var(--seal); color: #fff; border-color: var(--seal); }
 
-.btn-sm {
-  padding: 5px 10px;
-  font-size: 12.5px;
-}
+.btn-sm { padding: 5px 10px; font-size: 12.5px; }
 
 .btn-link {
   color: var(--pine);
@@ -123,7 +103,7 @@ button:disabled {
 }
 .btn-link:hover { text-decoration: underline; }
 
-/* ---------- 标签与徽章（永不竖排折行） ---------- */
+/* ---------- 标签与徽章 ---------- */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -146,22 +126,43 @@ button:disabled {
 .badge-qq { background: var(--qq-wash); border-color: #bfd4ea; color: var(--qq); }
 
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 6.5px;
+  height: 6.5px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--ink-3);
+  background: #b5aea0;
 }
 .dot-ok { background: #268957; }
 .dot-warn { background: #c58420; }
 .dot-err { background: var(--seal); }
 
-/* ---------- 卡片与书卷标题 ---------- */
+/* ---------- 线装书页卡片 ---------- */
 .card {
   background: var(--paper-card);
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--book-frame);
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
+}
+
+.book-sheet {
+  position: relative;
+  background: var(--paper-card);
+  border: 1px solid var(--book-frame);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sheet);
+}
+
+/* 线装书页左侧极细双边书口线 */
+.book-sheet::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: 3px;
+  border-left: 1px solid rgba(181, 54, 36, 0.22);
+  border-right: 1px solid rgba(211, 199, 174, 0.55);
+  pointer-events: none;
 }
 
 .page-header {
@@ -177,17 +178,17 @@ button:disabled {
 
 .page-title {
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   color: var(--ink);
   line-height: 1.2;
 }
 
 .page-title-accent {
   display: inline-block;
-  width: 28px;
-  height: 2.5px;
+  width: 24px;
+  height: 2px;
   background: var(--seal);
   border-radius: 2px;
   margin-top: 6px;
@@ -212,12 +213,12 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
-  border-radius: var(--radius);
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   margin-bottom: 14px;
   border: 1px solid var(--ochre-border);
-  background: var(--ochre-wash);
+  background: rgba(248, 239, 220, 0.72);
   color: #6b470f;
 }
 
@@ -244,10 +245,7 @@ button:disabled {
 /* ---------- 空状态 ---------- */
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
-  border: 1px dashed var(--hairline-strong);
-  border-radius: var(--radius);
-  background: rgba(253, 251, 247, 0.55);
+  padding: 46px 20px;
   color: var(--ink-2);
 }
 
@@ -255,14 +253,14 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius);
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--hairline-strong);
-  background: var(--paper-card);
+  background: var(--paper);
   color: var(--ink-3);
   font-size: 18px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .empty-mark-warn {
@@ -273,7 +271,8 @@ button:disabled {
 
 .empty-title {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 19px;
+  letter-spacing: 0.05em;
   color: var(--ink);
   margin-bottom: 6px;
 }
@@ -282,7 +281,7 @@ button:disabled {
   font-size: 13px;
   color: var(--ink-3);
   max-width: 420px;
-  margin: 0 auto 14px;
+  margin: 0 auto 16px;
 }
 
 /* ---------- 分段标签 ---------- */
@@ -298,7 +297,7 @@ button:disabled {
 
 .seg-btn {
   padding: 5px 12px;
-  border-radius: 5px;
+  border-radius: 4px;
   font-size: 13px;
   color: var(--ink-2);
   white-space: nowrap;
@@ -318,7 +317,8 @@ button:disabled {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(21, 46, 36, 0.36);
+  background: rgba(21, 46, 36, 0.34);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -333,8 +333,8 @@ button:disabled {
   flex-direction: column;
   background: var(--paper-card);
   border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 24px 56px -18px rgba(21, 46, 36, 0.35);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 56px -18px rgba(21, 46, 36, 0.32);
   overflow: hidden;
 }
 
@@ -350,15 +350,16 @@ button:disabled {
 
 .modal-title {
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 600;
+  letter-spacing: 0.05em;
   color: var(--ink);
 }
 
 .modal-close {
   width: 30px;
   height: 30px;
-  border-radius: 6px;
+  border-radius: 5px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -385,34 +386,19 @@ button:disabled {
   background: var(--paper);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.field-label {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--ink-2);
-}
-
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 .muted { color: var(--ink-3); }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 
-/* ---------- 滚动条 ---------- */
 ::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cfc5b4; border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #b5a893; }
+::-webkit-scrollbar-thumb { background: #d4cab8; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #b7aa94; }
 
 @media (max-width: 640px) {
   .field-row { grid-template-columns: 1fr; }
-  .page-title { font-size: 22px; }
+  .page-title { font-size: 24px; }
 }

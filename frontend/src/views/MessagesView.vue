@@ -441,7 +441,7 @@ function outboxStatusLabel(item) {
 .messages-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 152px);
+  height: calc(100vh - 156px);
   min-height: 460px;
   min-width: 0;
 }

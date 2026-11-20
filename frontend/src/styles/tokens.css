@@ -1,53 +1,59 @@
-/* 讯课 · 新中式宣纸墨韵（Refined Neo-Chinese Ink）
-   克制的书卷气：宣纸白、松烟墨、松柏青、朱砂印。无颗粒噪点，细线分栏。 */
+/* 讯课 · 素宣书案 × 线装日程（Neo-Chinese Editorial / Ink-Wash Xuan Paper）
+   素宣通透底色 + 极淡青黛水墨晕染 + 线装书双栏细线 + 朱砂印章点睛 */
 
 :root {
-  --paper: #f7f4ed;
-  --paper-card: #fdfbf7;
-  --paper-soft: #f0ebe0;
-  --paper-hover: #eae3d5;
-  --hairline: #e4dccd;
-  --hairline-strong: #d4c9b4;
+  --paper: #f9f6ee;
+  --paper-card: #fffdf8;
+  --paper-soft: #f2ede1;
+  --paper-hover: #ebe4d4;
+  --hairline: #e5ddc9;
+  --hairline-strong: #d3c7ae;
+  --book-frame: #dcd1bc;
 
-  --ink: #1c2621;
-  --ink-2: #4c5a52;
-  --ink-3: #7d8981;
+  --ink: #1b241f;
+  --ink-2: #4f5c54;
+  --ink-3: #838e86;
 
-  --pine: #1e4d3b;
-  --pine-hi: #29664f;
-  --pine-deep: #152e24;
-  --pine-rail: #173227;
-  --pine-wash: #e5efe9;
-  --pine-border: #c5dad0;
+  --pine: #1f4f3d;
+  --pine-hi: #2b6952;
+  --pine-deep: #153428;
+  --pine-wash: #e6f0ea;
+  --pine-border: #c1d8cb;
 
-  --seal: #b83b28;
-  --seal-hi: #9e2f1e;
-  --seal-wash: #f9e6e2;
-  --seal-border: #ebbfb7;
+  --celadon: #5d7b74;
+  --celadon-wash: rgba(31, 79, 61, 0.048);
+  --mist-wash: rgba(74, 102, 114, 0.042);
 
-  --ochre: #9c6a1d;
-  --ochre-wash: #f7eedc;
-  --ochre-border: #e6d1a7;
+  --seal: #b53624;
+  --seal-hi: #96291a;
+  --seal-wash: #faece8;
+  --seal-border: #e5b7ae;
 
-  --wx: #257a4c;
-  --wx-wash: #e4f3ea;
+  --ochre: #9a691b;
+  --ochre-wash: #f8efdc;
+  --ochre-border: #e5cfa2;
+
+  --wx: #25754a;
+  --wx-wash: #e6f4ec;
   --qq: #2d5d8c;
-  --qq-wash: #e6eff8;
+  --qq-wash: #e8f0f9;
 
-  --font-display: "KaiTi", "STKaiti", "Kaiti SC", "FangSong", "楷体", serif;
+  --font-display: "STKaiti", "KaiTi", "Kaiti SC", "FangSong", "Songti SC", "SimSun", serif;
+  --font-serif: "Songti SC", "NSimSun", "SimSun", "STSong", Georgia, serif;
   --font-body: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Variable", "PingFang SC", sans-serif;
   --font-num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", sans-serif;
 
-  --radius-sm: 6px;
-  --radius: 10px;
+  --radius-sm: 5px;
+  --radius: 9px;
   --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(21, 46, 36, 0.05);
-  --shadow-md: 0 10px 28px -14px rgba(21, 46, 36, 0.22);
+  --shadow-sm: 0 1px 2px rgba(27, 36, 31, 0.04);
+  --shadow-sheet: 0 18px 42px -28px rgba(27, 45, 36, 0.22), 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  --shadow-md: 0 14px 34px -18px rgba(21, 52, 40, 0.24);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--ink);
   color-scheme: light;
 }

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from './api.js';
-import { formatDue, sortPendingTasks } from './utils/format.js';
+import { formatDue, sortPendingTasks, lunarHeading } from './utils/format.js';
 
 const state = ref(null);
 const error = ref('');
@@ -17,6 +17,7 @@ let toastTimer = null;
 
 const inDesktop = computed(() => typeof window !== 'undefined' && Boolean(window.pywebview?.api));
 const convMap = computed(() => new Map((state.value?.conversations || []).map(c => [c.id, c])));
+const lunarText = lunarHeading();
 
 const pendingTasks = computed(() =>
   sortPendingTasks((state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other'))
@@ -48,7 +49,7 @@ async function complete(task) {
       status: 'done',
       needsReview: false
     }, 'PATCH');
-    notify(`已完成「${task.title}」`);
+    notify(`已勾销「${task.title}」`);
     await refresh();
   } catch (err) {
     notify(err.message);
@@ -71,7 +72,7 @@ async function quickAdd() {
     quickTitle.value = '';
     quickDue.value = '';
     showDate.value = false;
-    notify('已添加待办');
+    notify('已落纸记下');
     await refresh();
   } catch (err) {
     notify(err.message);
@@ -102,112 +103,124 @@ onMounted(() => {
   timer = setInterval(() => { if (!document.hidden) refresh(); }, 6000);
 });
 
-onUnmounted(() => {
-  if (timer) clearInterval(timer);
-});
+onUnmounted(() => { if (timer) clearInterval(timer); });
 </script>
 
 <template>
-  <div class="widget-shell">
-    <header class="w-head">
-      <div class="w-brand">
-        <span class="w-seal">讯</span>
-        <span class="w-title">今日待办</span>
-        <span class="w-count num">{{ pendingTasks.length }}</span>
+  <div class="slip-shell">
+    <!-- 素宣便签顶眉（一缕细松柏线 + 朱印「讯」） -->
+    <header class="slip-head">
+      <div class="slip-brand">
+        <span class="slip-seal">讯</span>
+        <div>
+          <div class="slip-title-row">
+            <span class="slip-title">今日案头</span>
+            <span class="slip-count num">{{ pendingTasks.length }}</span>
+          </div>
+          <p v-if="lunarText" class="slip-lunar">{{ lunarText }}</p>
+        </div>
       </div>
-      <div class="w-tools">
-        <span class="w-dot-pill" :title="qqOnline ? 'QQ 已连接' : 'QQ 未连接'">
+
+      <div class="slip-tools">
+        <span class="slip-dot" :title="qqOnline ? 'QQ 已连接' : 'QQ 未连接'">
           <span class="dot" :class="qqOnline ? 'dot-ok' : ''"></span>QQ
         </span>
-        <span class="w-dot-pill" :title="wxOnline ? '微信已接入' : '微信未接入'">
-          <span class="dot" :class="wxOnline ? 'dot-ok' : 'dot-warn'"></span>微信
+        <span class="slip-dot" :title="wxOnline ? '微信已接入' : '微信未接入'">
+          <span class="dot" :class="wxOnline ? 'dot-ok' : 'dot-warn'"></span>微
         </span>
-        <button v-if="inDesktop" class="w-icon-btn" :class="{ active: pinned }" @click="togglePin" :title="pinned ? '取消置顶' : '窗口置顶'">
+        <button v-if="inDesktop" class="slip-icon" :class="{ active: pinned }" @click="togglePin" :title="pinned ? '取消置顶' : '窗口置顶'">
           📌
         </button>
-        <button class="w-icon-btn" @click="openMain" title="打开主工作台">↗</button>
-        <button v-if="inDesktop" class="w-icon-btn" @click="hideWidget" title="收起小窗">×</button>
+        <button class="slip-icon" @click="openMain" title="展开主工作台">↗</button>
+        <button v-if="inDesktop" class="slip-icon" @click="hideWidget" title="收起小窗">×</button>
       </div>
     </header>
 
-    <div class="w-body">
-      <div v-if="error && !state" class="w-empty muted">{{ error }}</div>
-      <div v-else-if="!state" class="w-empty muted">加载中…</div>
-      <div v-else-if="!pendingTasks.length" class="w-empty">
-        <p class="w-empty-title">暂无未完成待办</p>
-        <p class="muted">下方可直接记一条，或等待群通知自动整理。</p>
+    <!-- 线装宣纸便签正文 -->
+    <div class="slip-body">
+      <div v-if="error && !state" class="slip-empty muted">{{ error }}</div>
+      <div v-else-if="!state" class="slip-empty muted">展卷中…</div>
+      <div v-else-if="!pendingTasks.length" class="slip-empty">
+        <span class="slip-zen-seal" aria-hidden="true">无事</span>
+        <p class="slip-empty-title">案头清净</p>
+        <p class="muted">下方可速记一条，群通知也会自动摘录至此。</p>
       </div>
-      <ul v-else class="w-list">
-        <li v-for="task in pendingTasks" :key="task.id" class="w-item" :class="{ overdue: formatDue(task).state === 'overdue' }">
+      <ul v-else class="slip-list">
+        <li v-for="task in pendingTasks" :key="task.id" class="slip-item" :class="{ overdue: formatDue(task).state === 'overdue' }">
           <button
-            class="w-check"
+            class="slip-check"
             :disabled="busyId === task.id"
             :aria-label="`完成 ${task.title}`"
             @click="complete(task)"
           ></button>
-          <div class="w-item-main">
-            <div class="w-item-title">
+          <div class="slip-item-main">
+            <div class="slip-item-title">
               <span>{{ task.title }}</span>
-              <span v-if="formatDue(task).state === 'overdue'" class="w-seal-tag">逾期</span>
+              <span v-if="formatDue(task).state === 'overdue'" class="slip-overdue-tag">逾期</span>
             </div>
-            <div class="w-item-meta">
+            <div class="slip-item-meta">
               <span class="num" :class="`due-${formatDue(task).state}`">{{ formatDue(task).text }}</span>
-              <span class="muted">· {{ task.conversationId ? (convMap.get(task.conversationId)?.title || '群通知') : '手动' }}</span>
+              <span class="muted">· {{ task.conversationId ? (convMap.get(task.conversationId)?.title || '群通知') : '手记' }}</span>
             </div>
           </div>
         </li>
       </ul>
     </div>
 
-    <div v-if="toastText" class="w-toast">{{ toastText }}</div>
+    <div v-if="toastText" class="slip-toast">{{ toastText }}</div>
 
-    <form class="w-add" @submit.prevent="quickAdd">
-      <div class="w-add-row">
-        <input v-model="quickTitle" class="input w-input" maxlength="180" placeholder="快速记一条待办…" />
+    <!-- 底部速记条 -->
+    <form class="slip-add" @submit.prevent="quickAdd">
+      <div class="slip-add-row">
+        <input v-model="quickTitle" class="input slip-input" maxlength="180" placeholder="速记一条待办…" />
         <button type="button" class="btn btn-secondary btn-sm" @click="showDate = !showDate" title="设置截止日期">📅</button>
-        <button type="submit" class="btn btn-primary btn-sm" :disabled="adding || !quickTitle.trim()">添加</button>
+        <button type="submit" class="btn btn-primary btn-sm" :disabled="adding || !quickTitle.trim()">记下</button>
       </div>
-      <input v-if="showDate" v-model="quickDue" type="date" class="input w-date" />
+      <input v-if="showDate" v-model="quickDue" type="date" class="input slip-date" />
     </form>
   </div>
 </template>
 
 <style scoped>
-.widget-shell {
+.slip-shell {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--paper);
+  background-color: var(--paper-card);
+  background-image:
+    radial-gradient(ellipse 80% 45% at 95% 5%, var(--celadon-wash), transparent 70%);
+  border-top: 2.5px solid var(--pine);
   color: var(--ink);
   overflow: hidden;
+  position: relative;
 }
 
-.w-head {
+.slip-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px 12px;
-  background: var(--pine-rail);
-  color: #f4efe4;
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(249, 246, 238, 0.9);
   flex-shrink: 0;
 }
 
-.w-brand {
+.slip-brand {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
 }
 
-.w-seal {
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
+.slip-seal {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
   background: var(--seal);
-  color: #fff;
+  color: #fdf8f2;
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -215,98 +228,130 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.w-title {
+.slip-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slip-title {
   font-family: var(--font-display);
-  font-size: 16px;
-  letter-spacing: 0.04em;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
-.w-count {
+.slip-count {
   font-size: 11px;
-  padding: 1px 6px;
+  padding: 0 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--pine-wash);
+  color: var(--pine);
+  font-weight: 600;
 }
 
-.w-tools {
+.slip-lunar {
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.2;
+}
+
+.slip-tools {
   display: flex;
   align-items: center;
   gap: 5px;
   flex-shrink: 0;
 }
 
-.w-dot-pill {
+.slip-dot {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   font-size: 11px;
-  color: rgba(244, 239, 228, 0.85);
+  color: var(--ink-2);
   white-space: nowrap;
 }
 
-.w-icon-btn {
+.slip-icon {
   width: 24px;
   height: 24px;
-  border-radius: 5px;
+  border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(244, 239, 228, 0.82);
+  color: var(--ink-2);
   font-size: 13px;
 }
-.w-icon-btn:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
-.w-icon-btn.active { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.slip-icon:hover { background: var(--paper-soft); color: var(--pine); }
+.slip-icon.active { background: var(--pine-wash); color: var(--pine); }
 
-.w-body {
+.slip-body {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 10px;
+  padding: 6px 12px;
 }
 
-.w-empty {
+.slip-empty {
   text-align: center;
-  padding: 36px 12px;
+  padding: 46px 14px;
   font-size: 12.5px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
 }
-.w-empty-title { font-family: var(--font-display); font-size: 16px; color: var(--ink); }
 
-.w-list {
+.slip-zen-seal {
+  writing-mode: vertical-rl;
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  padding: 7px 5px;
+  border: 1px solid rgba(181, 54, 36, 0.55);
+  border-radius: 2px;
+  color: var(--seal);
+  background: rgba(250, 236, 232, 0.45);
+}
+
+.slip-empty-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.slip-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
-.w-item {
+.slip-item {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 9px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--paper-card);
-  border: 1px solid var(--hairline);
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--hairline);
 }
-.w-item.overdue { border-color: var(--seal-border); background: #fdf6f4; }
+.slip-item:last-child { border-bottom: 0; }
+.slip-item.overdue { background: rgba(181, 54, 36, 0.035); margin: 0 -12px; padding: 10px 14px; }
 
-.w-check {
+.slip-check {
   width: 17px;
   height: 17px;
   border-radius: 50%;
   border: 1.5px solid var(--hairline-strong);
   margin-top: 2px;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--paper-card);
 }
-.w-check:hover { border-color: var(--pine); background: var(--pine-wash); }
+.slip-check:hover { border-color: var(--pine); background: var(--pine-wash); }
 
-.w-item-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.w-item-title {
+.slip-item-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.slip-item-title {
   font-size: 13px;
   font-weight: 500;
   line-height: 1.4;
@@ -316,18 +361,18 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.w-seal-tag {
+.slip-overdue-tag {
   font-family: var(--font-display);
   font-size: 10.5px;
   padding: 0 4px;
   border: 1px solid var(--seal);
-  border-radius: 3px;
+  border-radius: 2px;
   color: var(--seal);
   background: var(--seal-wash);
   white-space: nowrap;
 }
 
-.w-item-meta {
+.slip-item-meta {
   font-size: 11.5px;
   display: flex;
   gap: 4px;
@@ -339,30 +384,30 @@ onUnmounted(() => {
 .due-soon { color: var(--pine); }
 .due-unknown { color: var(--ink-3); }
 
-.w-toast {
+.slip-toast {
   padding: 5px 10px;
   font-size: 12px;
   text-align: center;
   background: var(--pine);
-  color: #fff;
+  color: #faf7f0;
 }
 
-.w-add {
-  padding: 8px 10px;
+.slip-add {
+  padding: 9px 10px;
   border-top: 1px solid var(--hairline);
-  background: var(--paper-card);
+  background: var(--paper);
   display: flex;
   flex-direction: column;
   gap: 6px;
   flex-shrink: 0;
 }
 
-.w-add-row {
+.slip-add-row {
   display: flex;
   gap: 6px;
   align-items: center;
 }
 
-.w-input { flex: 1; padding: 6px 9px; font-size: 13px; }
-.w-date { padding: 5px 8px; font-size: 12.5px; }
+.slip-input { flex: 1; padding: 6px 9px; font-size: 13px; }
+.slip-date { padding: 5px 8px; font-size: 12.5px; }
 </style>

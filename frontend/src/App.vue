@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from './api.js';
-import { todayHeading } from './utils/format.js';
 import StatusPills from './components/StatusPills.vue';
 import AssistantDrawer from './components/AssistantDrawer.vue';
 import TaskDetailModal from './components/TaskDetailModal.vue';
@@ -59,7 +58,7 @@ const qqBanner = computed(() => {
   if (qq.blockedReason === 'desktop_in_use') {
     return {
       text: qq.pausedByDesktop
-        ? '检测到桌面 QQ 正在运行，独立采集已临时暂停；关闭桌面 QQ 后将自动恢复并补拉消息。'
+        ? '桌面 QQ 运行中，独立采集已临时暂停；关闭桌面 QQ 后自动恢复并补拉。'
         : '检测到桌面 QQ 正在运行，已优先保护桌面登录。',
       action: null
     };
@@ -68,14 +67,13 @@ const qqBanner = computed(() => {
     return { text: 'QQ 采集等待扫码登录，请打开扫码页完成验证。', action: 'qr' };
   }
   if (!qq.keepRunning && (state.value?.capture?.groups?.length || 0) > 0) {
-    return { text: 'QQ 采集当前已停止，暂不会收到新的 QQ 群消息。', action: 'start' };
+    return { text: 'QQ 采集当前未开启，暂不会收到新的 QQ 群消息。', action: 'start' };
   }
   return null;
 });
 
 async function refresh(silent = false) {
   try {
-    // 非聊天页用 compact=1 只拉取已关注会话，避免每 5 秒传输 400+ 未关注群。
     const useCompact = view.value !== 'messages';
     const data = await api(useCompact ? '/api/state?compact=1' : '/api/state');
     state.value = data;
@@ -118,150 +116,127 @@ async function quickStartQQ() {
 async function openMiniWidget() {
   try {
     await window.pywebview?.api?.toggle_widget();
-  } catch (err) {
+  } catch {
     showToast('无法切换迷你小窗', 'error');
   }
 }
 
-onMounted(() => {
-  refresh(false);
-});
-
-onUnmounted(() => {
-  if (pollTimer) clearInterval(pollTimer);
-});
+onMounted(() => { refresh(false); });
+onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 </script>
 
 <template>
-  <div class="shell">
-    <!-- 左侧松柏墨绿导航栏 -->
-    <aside class="rail">
-      <a class="brand" href="/" @click.prevent="navigate('tasks')">
-        <span class="brand-seal" aria-hidden="true">讯</span>
-        <span class="brand-text">
-          <strong class="brand-name">讯课</strong>
-          <small class="brand-sub">QQ · 微信工作台</small>
-        </span>
-      </a>
+  <div class="desk-shell">
+    <!-- 顶部书眉雅栏（去除了厚重侧边栏，全宣纸通透视野） -->
+    <header class="masthead">
+      <div class="masthead-inner">
+        <div class="mast-left">
+          <a class="brand" href="/" @click.prevent="navigate('tasks')">
+            <span class="seal-mark" aria-hidden="true">讯</span>
+            <span class="brand-word">讯课</span>
+          </a>
 
-      <nav class="rail-nav" aria-label="主导航">
-        <button class="rail-item" :class="{ active: view === 'tasks' }" @click="navigate('tasks')">
-          <span class="rail-icon" aria-hidden="true">◎</span>
-          <span class="rail-label">待办清单</span>
-          <span class="rail-count num" :class="{ 'has-items': pendingCount > 0 }">{{ pendingCount }}</span>
-        </button>
+          <span class="mast-divider" aria-hidden="true"></span>
 
-        <button class="rail-item" :class="{ active: view === 'messages' }" @click="navigate('messages')">
-          <span class="rail-icon" aria-hidden="true">▤</span>
-          <span class="rail-label">聊天与消息</span>
-        </button>
-
-        <button class="rail-item" :class="{ active: view === 'conversations' }" @click="navigate('conversations')">
-          <span class="rail-icon" aria-hidden="true">◇</span>
-          <span class="rail-label">会话管理</span>
-        </button>
-
-        <button class="rail-item" :class="{ active: view === 'settings' }" @click="navigate('settings', 'connections')">
-          <span class="rail-icon" aria-hidden="true">⚙</span>
-          <span class="rail-label">设置与维护</span>
-        </button>
-      </nav>
-
-      <div class="rail-footer">
-        <button v-if="inDesktop" class="rail-action" @click="openMiniWidget">
-          <span aria-hidden="true">◳</span>
-          <span>迷你小窗</span>
-        </button>
-        <div class="rail-motto">
-          <span>消息有出处 · 事情有着落</span>
-        </div>
-        <button class="profile-btn" @click="profileModalOpen = true">
-          <span class="profile-avatar">我</span>
-          <span class="profile-text">{{ state?.profile?.name || '我的信息与规则' }}</span>
-          <span aria-hidden="true">↗</span>
-        </button>
-      </div>
-    </aside>
-
-    <!-- 右侧工作区 -->
-    <section class="workspace">
-      <header class="topbar">
-        <div class="topbar-date">
-          <span class="eyebrow">STUDY DESK</span>
-          <span class="today-text">{{ todayHeading() }}</span>
-        </div>
-        <StatusPills
-          v-if="state"
-          :state="state"
-          :assistant-open="assistantOpen"
-          @navigate="v => navigate(v, 'connections')"
-          @toggle-assistant="assistantOpen = !assistantOpen"
-        />
-      </header>
-
-      <main class="main-body">
-        <div v-if="loadError && !state" class="banner banner-err">
-          <span>无法连接工作台服务：{{ loadError }}</span>
-          <button class="btn btn-secondary btn-sm" @click="refresh(false)">重试</button>
+          <nav class="chapter-nav" aria-label="主导航">
+            <button class="chapter-tab" :class="{ active: view === 'tasks' }" @click="navigate('tasks')">
+              <span>待办</span>
+              <span v-if="pendingCount > 0" class="tab-badge num">{{ pendingCount }}</span>
+            </button>
+            <button class="chapter-tab" :class="{ active: view === 'messages' }" @click="navigate('messages')">
+              <span>消息</span>
+            </button>
+            <button class="chapter-tab" :class="{ active: view === 'conversations' }" @click="navigate('conversations')">
+              <span>会话</span>
+            </button>
+            <button class="chapter-tab" :class="{ active: view === 'settings' }" @click="navigate('settings', 'connections')">
+              <span>设置</span>
+            </button>
+          </nav>
         </div>
 
-        <div v-else-if="!state" class="empty-state">
-          <div class="empty-mark">◎</div>
-          <p class="muted">正在打开讯课工作台…</p>
-        </div>
-
-        <template v-else>
-          <div v-if="state.logging && !state.logging.ok" class="banner banner-err">
-            <span>{{ state.logging.error }}</span>
-          </div>
-
-          <div v-if="qqBanner && view !== 'settings'" class="banner">
-            <span class="banner-text">{{ qqBanner.text }}</span>
-            <button v-if="qqBanner.action === 'start'" class="btn btn-secondary btn-sm" @click="quickStartQQ">启动采集</button>
-            <a v-else-if="qqBanner.action === 'qr'" class="btn btn-secondary btn-sm" href="/qq-login" target="_blank" rel="noopener">去扫码 ↗</a>
-          </div>
-
-          <TasksView
-            v-if="view === 'tasks'"
+        <div class="mast-right">
+          <StatusPills
+            v-if="state"
             :state="state"
-            @refresh="refresh(true)"
-            @open-task="id => { taskModal = { open: true, mode: 'edit', taskId: id }; }"
-            @create-task="() => { taskModal = { open: true, mode: 'create', taskId: '' }; }"
+            :assistant-open="assistantOpen"
             @navigate="v => navigate(v, 'connections')"
-            @toast="showToast"
+            @toggle-assistant="assistantOpen = !assistantOpen"
           />
+          <button v-if="inDesktop" class="icon-action" @click="openMiniWidget" title="显示 / 隐藏迷你待办小窗">
+            ◳
+          </button>
+          <button class="profile-seal" @click="profileModalOpen = true" :title="state?.profile?.name ? `我的信息与规则（${state.profile.name}）` : '我的信息与规则'">
+            我
+          </button>
+        </div>
+      </div>
+    </header>
 
-          <MessagesView
-            v-else-if="view === 'messages'"
-            :state="state"
-            :initial-conversation-id="messageConvId"
-            @refresh="refresh(true)"
-            @toast="showToast"
-          />
+    <!-- 主卷工作区 -->
+    <main class="desk-main" :class="{ 'desk-wide': view === 'messages' }">
+      <div v-if="loadError && !state" class="banner banner-err">
+        <span>无法连接工作台服务：{{ loadError }}</span>
+        <button class="btn btn-secondary btn-sm" @click="refresh(false)">重试</button>
+      </div>
 
-          <ConversationsView
-            v-else-if="view === 'conversations'"
-            :state="state"
-            @refresh="refresh(true)"
-            @open-rules="conv => { rulesModalConv = conv; }"
-            @open-add="addGroupModalOpen = true"
-            @open-messages="openMessagesFor"
-            @toast="showToast"
-          />
+      <div v-else-if="!state" class="empty-state">
+        <div class="empty-mark">讯</div>
+        <p class="muted">展卷中…</p>
+      </div>
 
-          <SettingsView
-            v-else
-            :state="state"
-            :initial-sub-tab="settingsSubTab"
-            @refresh="refresh(true)"
-            @navigate="v => navigate(v)"
-            @toast="showToast"
-          />
-        </template>
-      </main>
-    </section>
+      <template v-else>
+        <div v-if="state.logging && !state.logging.ok" class="banner banner-err">
+          <span>{{ state.logging.error }}</span>
+        </div>
 
-    <!-- 通知助手侧滑抽屉 -->
+        <div v-if="qqBanner && view !== 'settings'" class="quiet-notice">
+          <span class="notice-dot" aria-hidden="true"></span>
+          <span class="notice-text">{{ qqBanner.text }}</span>
+          <button v-if="qqBanner.action === 'start'" class="btn-link" @click="quickStartQQ">开启采集</button>
+          <a v-else-if="qqBanner.action === 'qr'" class="btn-link" href="/qq-login" target="_blank" rel="noopener">去扫码 ↗</a>
+        </div>
+
+        <TasksView
+          v-if="view === 'tasks'"
+          :state="state"
+          @refresh="refresh(true)"
+          @open-task="id => { taskModal = { open: true, mode: 'edit', taskId: id }; }"
+          @create-task="() => { taskModal = { open: true, mode: 'create', taskId: '' }; }"
+          @navigate="v => navigate(v, 'connections')"
+          @toast="showToast"
+        />
+
+        <MessagesView
+          v-else-if="view === 'messages'"
+          :state="state"
+          :initial-conversation-id="messageConvId"
+          @refresh="refresh(true)"
+          @toast="showToast"
+        />
+
+        <ConversationsView
+          v-else-if="view === 'conversations'"
+          :state="state"
+          @refresh="refresh(true)"
+          @open-rules="conv => { rulesModalConv = conv; }"
+          @open-add="addGroupModalOpen = true"
+          @open-messages="openMessagesFor"
+          @toast="showToast"
+        />
+
+        <SettingsView
+          v-else
+          :state="state"
+          :initial-sub-tab="settingsSubTab"
+          @refresh="refresh(true)"
+          @navigate="v => navigate(v)"
+          @toast="showToast"
+        />
+      </template>
+    </main>
+
+    <!-- 通知助手抽屉 -->
     <AssistantDrawer
       v-if="state?.model?.configured"
       :open="assistantOpen"
@@ -309,294 +284,236 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.shell {
-  display: flex;
+.desk-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   overflow-x: clip;
 }
 
-.rail {
-  width: 204px;
-  flex-shrink: 0;
-  background: var(--pine-rail);
-  color: #f2ece0;
-  display: flex;
-  flex-direction: column;
-  padding: 16px 12px;
-  gap: 18px;
+/* 顶部书眉雅栏：通透素宣 + 顶部一缕极细朱砂边线 */
+.masthead {
   position: sticky;
   top: 0;
-  height: 100vh;
-  border-right: 1px solid #0f241b;
+  z-index: 30;
+  background: rgba(249, 246, 238, 0.88);
+  backdrop-filter: blur(12px);
+  border-top: 2px solid var(--pine);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.masthead-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 28px;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mast-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
 }
 
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 6px;
-  color: #f7f3ea;
+  gap: 9px;
+  color: var(--ink);
   text-decoration: none;
+  flex-shrink: 0;
 }
 .brand:hover { text-decoration: none; }
 
-.brand-seal {
-  width: 34px;
-  height: 34px;
-  border-radius: 7px;
+.seal-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  border: 1.5px solid var(--seal);
   background: var(--seal);
   color: #fdf8f2;
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid rgba(255, 232, 224, 0.35);
-  box-shadow: inset 0 0 0 2px rgba(255, 240, 234, 0.16);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 245, 240, 0.25);
 }
 
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.brand-name {
+.brand-word {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
+  color: var(--ink);
 }
 
-.brand-sub {
-  font-size: 11px;
-  color: rgba(242, 236, 224, 0.62);
-  margin-top: 2px;
+.mast-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--hairline-strong);
+  flex-shrink: 0;
 }
 
-.rail-nav {
+.chapter-nav {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
-.rail-item {
-  width: 100%;
-  display: flex;
+.chapter-tab {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 11px;
-  border-radius: var(--radius-sm);
-  color: rgba(242, 236, 224, 0.8);
-  font-size: 13.5px;
+  gap: 6px;
+  padding: 15px 13px;
+  font-size: 14px;
+  color: var(--ink-2);
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  transition: color 0.15s;
 }
 
-.rail-item:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-}
+.chapter-tab:hover { color: var(--ink); }
 
-.rail-item.active {
-  background: var(--paper);
-  color: var(--pine-deep);
+.chapter-tab.active {
+  color: var(--pine);
   font-weight: 600;
 }
 
-.rail-icon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
-.rail-label { flex: 1; text-align: left; }
+.chapter-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  background: var(--seal);
+  border-radius: 2px 2px 0 0;
+}
 
-.rail-count {
-  font-size: 11.5px;
-  padding: 1px 7px;
+.tab-badge {
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(242, 236, 224, 0.85);
-}
-
-.rail-item.active .rail-count {
-  background: var(--pine-wash);
-  color: var(--pine);
-}
-
-.rail-count.has-items {
   background: var(--seal);
   color: #fff;
 }
 
-.rail-footer {
-  margin-top: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.rail-action {
-  width: 100%;
+.mast-right {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 11px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(242, 236, 224, 0.2);
-  color: #f2ece0;
-  font-size: 13px;
-  white-space: nowrap;
-}
-.rail-action:hover { background: rgba(255, 255, 255, 0.09); }
-
-.rail-motto {
-  font-size: 11.5px;
-  color: rgba(242, 236, 224, 0.45);
-  padding: 0 6px;
-  letter-spacing: 0.05em;
-}
-
-.profile-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f2ece0;
-  font-size: 13px;
-}
-.profile-btn:hover { background: rgba(255, 255, 255, 0.12); }
-
-.profile-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(242, 236, 224, 0.16);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 13px;
   flex-shrink: 0;
 }
 
-.profile-text {
-  flex: 1;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.icon-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: var(--paper-card);
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.icon-action:hover { border-color: var(--pine-border); color: var(--pine); }
+
+.profile-seal {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline-strong);
+  background: var(--paper-card);
+  color: var(--pine);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.profile-seal:hover {
+  background: var(--pine);
+  border-color: var(--pine);
+  color: #faf7f0;
 }
 
-.workspace {
+/* 居中留白主卷 */
+.desk-main {
   flex: 1;
+  width: 100%;
+  max-width: 960px;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
+  margin: 0 auto;
+  padding: 26px 28px 44px;
 }
 
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: rgba(247, 244, 237, 0.94);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--hairline);
-  padding: 10px 24px;
+.desk-main.desk-wide {
+  max-width: 1180px;
+  padding: 18px 28px 24px;
+}
+
+/* 轻量低噪提示条（替代刺眼的整块大黄横幅） */
+.quiet-notice {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.topbar-date {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.eyebrow {
-  font-family: var(--font-num);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-
-.today-text {
-  font-size: 13px;
+  gap: 8px;
+  padding: 7px 12px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: rgba(255, 253, 248, 0.72);
+  font-size: 12.5px;
   color: var(--ink-2);
-  white-space: nowrap;
+  flex-wrap: wrap;
 }
 
-.main-body {
-  flex: 1;
-  min-width: 0;
-  padding: 20px 24px 28px;
-  max-width: 1220px;
-  width: 100%;
-  margin: 0 auto;
+.notice-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ochre);
+  flex-shrink: 0;
 }
 
-/* 窄窗口（含 420x760 手机/侧栏小窗）响应式适配 */
-@media (max-width: 720px) {
-  .shell { flex-direction: column; }
+.notice-text { flex: 1; min-width: 180px; }
 
-  .rail {
-    width: 100%;
-    height: auto;
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    padding: 10px 12px;
-    gap: 10px;
-    border-right: 0;
-    border-bottom: 1px solid #0f241b;
-  }
-
-  .brand-sub, .rail-motto { display: none; }
-
-  .rail-nav {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 4px;
-  }
-
-  .rail-item {
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 4px;
-    font-size: 11.5px;
-    position: relative;
-  }
-
-  .rail-label { text-align: center; }
-
-  .rail-count {
-    position: absolute;
-    top: 3px;
-    right: 6px;
-    padding: 0 5px;
-    font-size: 10px;
-  }
-
-  .rail-footer {
-    flex-direction: row;
-    margin-top: 0;
-    justify-content: flex-end;
-    display: none;
-  }
-
-  .topbar {
-    position: static;
+@media (max-width: 780px) {
+  .masthead-inner {
     padding: 8px 14px;
+    gap: 8px;
   }
-
-  .main-body {
-    padding: 14px;
+  .mast-divider { display: none; }
+  .mast-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .chapter-tab {
+    padding: 8px 10px;
+    font-size: 13.5px;
+  }
+  .mast-right {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px solid var(--hairline);
+  }
+  .desk-main, .desk-main.desk-wide {
+    padding: 16px 14px 28px;
   }
 }
 </style>
