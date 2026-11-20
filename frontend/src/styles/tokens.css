@@ -1,0 +1,53 @@
+/* 讯课 · 新中式宣纸墨韵（Refined Neo-Chinese Ink）
+   克制的书卷气：宣纸白、松烟墨、松柏青、朱砂印。无颗粒噪点，细线分栏。 */
+
+:root {
+  --paper: #f7f4ed;
+  --paper-card: #fdfbf7;
+  --paper-soft: #f0ebe0;
+  --paper-hover: #eae3d5;
+  --hairline: #e4dccd;
+  --hairline-strong: #d4c9b4;
+
+  --ink: #1c2621;
+  --ink-2: #4c5a52;
+  --ink-3: #7d8981;
+
+  --pine: #1e4d3b;
+  --pine-hi: #29664f;
+  --pine-deep: #152e24;
+  --pine-rail: #173227;
+  --pine-wash: #e5efe9;
+  --pine-border: #c5dad0;
+
+  --seal: #b83b28;
+  --seal-hi: #9e2f1e;
+  --seal-wash: #f9e6e2;
+  --seal-border: #ebbfb7;
+
+  --ochre: #9c6a1d;
+  --ochre-wash: #f7eedc;
+  --ochre-border: #e6d1a7;
+
+  --wx: #257a4c;
+  --wx-wash: #e4f3ea;
+  --qq: #2d5d8c;
+  --qq-wash: #e6eff8;
+
+  --font-display: "KaiTi", "STKaiti", "Kaiti SC", "FangSong", "楷体", serif;
+  --font-body: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Variable", "PingFang SC", sans-serif;
+  --font-num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", sans-serif;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(21, 46, 36, 0.05);
+  --shadow-md: 0 10px 28px -14px rgba(21, 46, 36, 0.22);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+  color-scheme: light;
+}

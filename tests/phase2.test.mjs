@@ -187,6 +187,12 @@ test('定时空跑不刷日志，分页查询会话与日志、清空助手历�
 
   assert.equal((await api('/api/chat?scope=all', 'DELETE')).status, 200);
   assert.equal(app.store.chat('all').length, 0);
+
+  // 新版 Vue 3 入口（/ 与 /widget）及构建产物路径安全检查
+  const widgetResp = await fetch(base + '/widget');
+  assert.equal(widgetResp.status, 200);
+  assert.match(widgetResp.headers.get('set-cookie') || '', /workbench_session=/);
+  assert.equal((await fetch(base + '/app/assets/..%2F..%2Fserver.mjs')).status, 404);
 });
 
 test('QQ 补拉隔离单群错误：一个群失败不影响其余群继续补拉', async t => {
