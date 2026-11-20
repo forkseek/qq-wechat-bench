@@ -219,3 +219,52 @@ test('QQ 补拉隔离单群错误：一个群失败不影响其余群继续补�
   assert.ok(res.error);
   store.close();
 });
+
+test('桌面 QQ 本地直读：自动发现群与消息，与历史 NapCat groupSeq 无缝去重，未关注群不存库', async t => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'workbench-qqlocal-'));
+  const qqLocalBridge = {
+    status: async () => ({ available: true, online: true, mode: 'local', phase: 'ready', selfId: '10001', name: '测试同学', error: '' }),
+    groups: async () => [
+      { groupId: '20001', name: '课程通知群', memberCount: 60 },
+      { groupId: '20002', name: '闲聊未关注群', memberCount: 30 }
+    ],
+    sessions: async () => [{ platform: 'qq', selfId: '10001', remoteId: '20001', kind: 'group', title: '课程通知群', lastTime: 1795160200 }],
+    activeGroups: async () => [{ platform: 'qq', selfId: '10001', remoteId: '20002', kind: 'group', title: '闲聊未关注群', lastTime: 1795160200 }],
+    messages: async conv => [
+      { platform: 'qq', selfId: '10001', remoteId: conv.remoteId, kind: 'group', title: conv.title, externalId: '99901', groupSeq: '500', senderId: '30001', senderName: '老师', content: '已有旧消息', time: 1795160100, isSelf: false },
+      { platform: 'qq', selfId: '10001', remoteId: conv.remoteId, kind: 'group', title: conv.title, externalId: '99902', groupSeq: '501', senderId: '30001', senderName: '老师', content: '今天新发的作业通知', time: 1795160200, isSelf: false }
+    ],
+    close() {}
+  };
+  const app = createApp({
+    dataDir: dir, supervise: false, capture: { groups: ['20001'] },
+    model: { configured: false, enabled: false },
+    qqLocalBridge,
+    wechatBridge: { status: async () => ({ available: true, online: false, phase: 'client_closed', error: '' }), close() {} }
+  });
+  t.after(async () => { await app.close(); rmSync(dir, { recursive: true, force: true }); });
+  // 先通过旧版 NapCat 格式入库一条 seq=500 的消息
+  app.receive({ time: 1795160100, self_id: 10001, post_type: 'message', message_type: 'group', group_id: 20001, message_id: 1, real_seq: '500', user_id: 30001, sender: { nickname: '老师' }, message: [{ type: 'text', data: { text: '已有旧消息' } }] });
+  assert.equal(app.store.messageCount('qq:group:20001'), 1);
+
+  await app.messaging.tick();
+  // 本地直读同步：seq=500 去重，只新增 seq=501；未关注群 20002 不存正文
+  assert.equal(app.store.messageCount('qq:group:20001'), 2);
+  assert.equal(app.store.messageCount('qq:group:20002'), 0);
+
+  const base = await app.listen(0);
+  const cookie = (await fetch(base)).headers.get('set-cookie').split(';')[0];
+  const api = (route, body = undefined, method = body === undefined ? 'GET' : 'POST') => fetch(base + route, {
+    method, headers: { Cookie: cookie, Origin: base, 'Content-Type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) })
+  });
+  const state = await (await api('/api/state?compact=1')).json();
+  assert.equal(state.qq.online, true);
+  assert.equal(state.qq.mode, 'local');
+  assert.equal(state.qq.name, '测试同学');
+  const groups = await (await api('/api/qq/groups')).json();
+  assert.equal(groups.length, 2);
+  const unmonMsgs = await (await api(`/api/conversations/${encodeURIComponent('qq:group:20002')}/messages`)).json();
+  assert.equal(unmonMsgs.length, 2);
+  assert.equal(app.store.messageCount('qq:group:20002'), 0);
+});

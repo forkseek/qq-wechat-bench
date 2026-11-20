@@ -109,10 +109,13 @@ const qqMonitoredTitles = computed(() =>
 
 const qqStatusBadge = computed(() => {
   const qq = props.state?.qq || {};
-  if (qq.online) return { text: '已在线', cls: 'badge-pine' };
-  if (qq.blockedReason === 'desktop_in_use') return { text: qq.pausedByDesktop ? '已暂让桌面 QQ' : '桌面 QQ 运行中', cls: 'badge-ochre' };
+  if (qq.online) {
+    if (qq.mode === 'local') return { text: qq.degraded ? '重试中' : '已接入（桌面直读）', cls: qq.degraded ? 'badge-ochre' : 'badge-pine' };
+    return { text: '已在线（独立采集）', cls: 'badge-pine' };
+  }
+  if (qq.blockedReason === 'desktop_in_use') return { text: '桌面 QQ 运行中', cls: 'badge-ochre' };
   if (qq.available || qq.launcherRunning || qq.ownedQQRunning) return { text: '启动中 / 待扫码', cls: 'badge-ochre' };
-  return { text: '已停止', cls: '' };
+  return { text: '等待登录', cls: '' };
 });
 
 const wxStatusBadge = computed(() => {
@@ -173,16 +176,16 @@ const wxStatusBadge = computed(() => {
       <article class="card setting-card">
         <div class="setting-head">
           <div class="setting-head-text">
-            <h2 class="setting-title">QQ 消息采集</h2>
+            <h2 class="setting-title">QQ · 本机登录自动接入</h2>
             <p class="muted setting-sub">
-              <template v-if="state.qq?.blockedReason === 'desktop_in_use'">
-                {{ state.qq.error }}
+              <template v-if="state.qq?.online && state.qq?.mode === 'local'">
+                当前已直连桌面 QQ 账号 <strong>{{ state.qq.name || state.qq.account }}</strong>（<span class="num">{{ state.qq.account }}</span>），与电脑 QQ 完全共存，后台每 15 秒同步已关注群消息，无需扫码或修改 QQ 客户端。
               </template>
-              <template v-else-if="qqMonitoredTitles.length">
-                正在关注 {{ qqMonitoredTitles.length }} 个群：{{ qqMonitoredTitles.join('、') }}
+              <template v-else-if="state.qq?.online">
+                当前通过独立采集在线，正在同步已关注 QQ 群。
               </template>
               <template v-else>
-                尚未关注 QQ 群，可先启动采集再到「会话管理」添加。
+                打开并登录电脑 QQ 后会自动识别当前账号与群聊，无需另扫二维码，与微信体验完全一致。
               </template>
             </p>
           </div>
@@ -193,54 +196,68 @@ const wxStatusBadge = computed(() => {
         </div>
 
         <div class="qq-details muted">
-          <p v-if="state.qq?.pausedByDesktop" class="highlight-note">
-            已记住常驻意图：检测到你关闭桌面 QQ 后，工作台会自动重新拉起采集并补拉期间消息。
-          </p>
-          <p v-else-if="state.qq?.keepRunning">常驻已开启：后台会守护采集进程，并每 30 分钟自动补拉漏消息。</p>
-          <p v-else>常驻已关闭：不会自动启动 QQ 采集，桌面 QQ 可随时正常使用。</p>
-          <p v-if="state.qq?.account">
-            免扫码账号：<strong class="num">{{ state.qq.account }}</strong>
-            <button
-              class="btn-link forget-link"
-              :disabled="busyAction === 'qq-forget'"
-              @click="runAction('qq-forget', () => api('/api/qq/account', {}, 'DELETE'), '已忘记账号，下次启动需重新扫码')"
-            >
-              忘记账号
-            </button>
+          <p v-if="qqMonitoredTitles.length">
+            正在关注 {{ qqMonitoredTitles.length }} 个群：{{ qqMonitoredTitles.join('、') }}
           </p>
           <p v-if="state.connection">
             已保存 <strong class="num">{{ state.connection.messages || 0 }}</strong> 条消息（含历史补拉 <strong class="num">{{ state.connection.historyMessages || 0 }}</strong> 条）
-            <span v-if="state.connection.lastReport"> · 最近上报 {{ formatTime(state.connection.lastReport) }}</span>
+            <span v-if="state.connection.lastReport"> · 最近同步 {{ formatTime(state.connection.lastReport) }}</span>
           </p>
         </div>
 
         <div class="setting-actions">
           <button
-            v-if="!state.qq?.keepRunning"
             class="btn btn-primary btn-sm"
-            :disabled="busyAction === 'qq-start'"
-            @click="runAction('qq-start', () => api('/api/qq/start', {}, 'POST'), '已开启 QQ 采集')"
+            :disabled="!state.qq?.online || busyAction === 'qq-backfill'"
+            @click="runAction('qq-backfill', () => api('/api/qq/backfill', {}, 'POST'), r => r?.error || `同步完成，新增 ${r?.imported ?? 0} 条 QQ 消息`)"
           >
-            启动采集
-          </button>
-          <button
-            v-else
-            class="btn btn-danger btn-sm"
-            :disabled="busyAction === 'qq-stop'"
-            @click="runAction('qq-stop', () => api('/api/qq/stop', {}, 'POST'), 'QQ 采集已停止')"
-          >
-            停止采集
+            {{ busyAction === 'qq-backfill' ? '同步中…' : '立即同步 QQ 消息' }}
           </button>
           <button
             class="btn btn-secondary btn-sm"
-            :disabled="!state.qq?.online || busyAction === 'qq-backfill'"
-            @click="runAction('qq-backfill', () => api('/api/qq/backfill', {}, 'POST'), r => r?.error || `补拉完成，新增 ${r?.imported ?? 0} 条消息`)"
+            :disabled="busyAction === 'discover'"
+            @click="runAction('discover', () => api('/api/conversations/discover', {}, 'POST'), '已刷新 QQ 与微信会话')"
           >
-            立即补拉
+            刷新 QQ 会话
           </button>
-          <a class="btn btn-secondary btn-sm" href="/qq-login" target="_blank" rel="noopener">打开扫码页 ↗</a>
           <button class="btn btn-ghost btn-sm" @click="$emit('navigate', 'conversations')">管理关注的群</button>
         </div>
+
+        <details class="legacy-qq">
+          <summary class="muted">高级：无桌面 QQ 时的独立采集选项（NapCat）</summary>
+          <div class="legacy-qq-body">
+            <p class="muted">平时开着电脑 QQ 时不需要开启此项；仅当你想关闭电脑 QQ 并在后台挂机采集或发 QQ 消息时才使用。</p>
+            <p v-if="state.qq?.account && state.qq?.mode !== 'local'" class="muted">
+              免扫码账号：<strong class="num">{{ state.qq.account }}</strong>
+              <button
+                class="btn-link forget-link"
+                :disabled="busyAction === 'qq-forget'"
+                @click="runAction('qq-forget', () => api('/api/qq/account', {}, 'DELETE'), '已忘记账号，下次独立启动需重新扫码')"
+              >
+                忘记账号
+              </button>
+            </p>
+            <div class="setting-actions">
+              <button
+                v-if="!state.qq?.keepRunning"
+                class="btn btn-secondary btn-sm"
+                :disabled="busyAction === 'qq-start'"
+                @click="runAction('qq-start', () => api('/api/qq/start', {}, 'POST'), '已开启独立 QQ 采集')"
+              >
+                启动独立采集
+              </button>
+              <button
+                v-else
+                class="btn btn-danger btn-sm"
+                :disabled="busyAction === 'qq-stop'"
+                @click="runAction('qq-stop', () => api('/api/qq/stop', {}, 'POST'), '独立 QQ 采集已停止')"
+              >
+                停止独立采集
+              </button>
+              <a class="btn btn-ghost btn-sm" href="/qq-login" target="_blank" rel="noopener">独立扫码页 ↗</a>
+            </div>
+          </div>
+        </details>
       </article>
 
       <!-- AI 模型配置 -->
@@ -393,6 +410,24 @@ const wxStatusBadge = computed(() => {
 
 .forget-link {
   margin-left: 10px;
+}
+
+.legacy-qq {
+  border-top: 1px solid var(--hairline);
+  padding-top: 10px;
+  font-size: 12.5px;
+}
+
+.legacy-qq summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.legacy-qq-body {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .setting-actions {

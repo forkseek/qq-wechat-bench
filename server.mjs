@@ -10,6 +10,7 @@ import { AppError, text, idString, normalizeEvent } from './lib/domain.mjs';
 import { loadModelConfig, publicModel, AnalysisWorker } from './lib/model.mjs';
 import { captureConfig, saveCapture, permitsCapture, prepareCapture, MAX_GROUPS } from './lib/capture.mjs';
 import { QQBridge } from './lib/qq-bridge.mjs';
+import { QQLocalBridge } from './lib/qq-local-bridge.mjs';
 import { QQSupervisor } from './lib/supervisor.mjs';
 import { defaultStartupDir, autostartEnabled } from './lib/autostart.mjs';
 import { WechatBridge } from './lib/wechat-bridge.mjs';
@@ -71,14 +72,34 @@ function assembleApp({ options, settings, dataDir, connection, capture, captureF
     onEvent: (event, value) => log.write(event, { platform: 'qq', ...value }, 'warn'), ...options.supervisor });
   const enqueueMonitored = () => { for (const conversation of store.conversations().filter(value => value.monitored)) worker.enqueue(conversation.id); };
   const wechatBridge = options.wechatBridge || new WechatBridge(root, { dataDir, settings });
-  const messaging = new Messaging({ store, qq: qqBridge, wechat: wechatBridge, dataDir, log, settings, enqueue: id => worker.enqueue(id) });
+  const qqLocalBridge = Object.hasOwn(options, 'qqLocalBridge') ? options.qqLocalBridge : (options.supervise === false ? null : new QQLocalBridge(root, { dataDir, settings }));
+  const messaging = new Messaging({ store, qq: qqBridge, qqLocal: qqLocalBridge, wechat: wechatBridge, dataDir, log, settings, enqueue: id => worker.enqueue(id) });
   const maintenance = new Maintenance({ store, dataDir, log, settings, analyze: enqueueMonitored, recover: false });
 
   const startupDir = options.startupDir || defaultStartupDir();
 
+  function qqSnapshot() {
+    const sup = supervisor.snapshot();
+    if (messaging.qqLocalStatus?.online) {
+      return {
+        ...sup,
+        available: true,
+        online: true,
+        mode: 'local',
+        phase: 'ready',
+        account: messaging.qqLocalStatus.selfId || sup.account,
+        name: messaging.qqLocalStatus.name || '',
+        degraded: Boolean(messaging.qqLocalStatus.degraded),
+        blockedReason: undefined,
+        error: messaging.qqLocalStatus.error || ''
+      };
+    }
+    return sup;
+  }
+
   function state({ compact = false } = {}) {
     const allConversations = store.conversations();
-    return { settings: publicSettings(settings), profile: store.profile(), model: publicModel(config), capture, connection: store.bridge(), qq: supervisor.snapshot(),
+    return { settings: publicSettings(settings), profile: store.profile(), model: publicModel(config), capture, connection: store.bridge(), qq: qqSnapshot(),
       wechat: messaging.wechatStatus, accounts: store.accounts(), maintenance: { config: maintenance.config, active: [...maintenance.active.keys()] },
       autostart: autostartEnabled(startupDir), logging: log.status(), runs: store.runs(5), pendingCount: store.pendingCount(),
       conversationCount: allConversations.length,
@@ -97,6 +118,14 @@ function assembleApp({ options, settings, dataDir, connection, capture, captureF
     }
     const id = `qq:group:${groupId}`;
     if (store.conversation(id) && !store.conversation(id).monitored) store.updateConversation(id, { monitored: true });
+    if (messaging.qqLocalStatus?.online) {
+      if (!store.conversation(id)) {
+        await messaging.discoverQQLocal().catch(() => {});
+        if (!store.conversation(id)) store.discover({ id, platform: 'qq', selfId: messaging.qqLocalStatus.selfId || '', remoteId: groupId, kind: 'group', title: `QQ群 ${groupId}` }, true);
+        else store.updateConversation(id, { monitored: true });
+      }
+      return messaging.backfillQQLocal([groupId]);
+    }
     await supervisor.tick();
     return supervisor.status.online ? supervisor.backfill({ groups: [groupId] }) : null;
   }
@@ -112,7 +141,7 @@ function assembleApp({ options, settings, dataDir, connection, capture, captureF
   }
 
   const handleApi = createApi({ store, worker, log, config, capture, qqBridge, supervisor, messaging, maintenance,
-    dataDir, root, startupDir, modelFile, settings, state, addGroup, removeGroup, enqueueMonitored, fetcher: options.fetcher,
+    dataDir, root, startupDir, modelFile, settings, state, qqSnapshot, addGroup, removeGroup, enqueueMonitored, fetcher: options.fetcher,
     shutdown: () => setImmediate(() => { app.close().catch(() => { process.exitCode = 1; }); }) });
   const server = http.createServer(createHttpHandler({ root, settings, getPort: () => port, secret: connection.secret,
     receive, handleApi, isClosing: () => closing, log }));

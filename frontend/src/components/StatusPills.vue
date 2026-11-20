@@ -9,10 +9,10 @@ defineEmits(['navigate', 'toggle-assistant']);
 
 const qqBadge = computed(() => {
   const qq = props.state?.qq || {};
-  if (qq.online) return { text: 'QQ', title: 'QQ 已连接', dot: 'dot-ok', cls: 'pill-ok' };
-  if (qq.blockedReason === 'desktop_in_use') return { text: 'QQ 暂让', title: qq.error || '桌面 QQ 运行中', dot: 'dot-warn', cls: 'pill-warn' };
+  if (qq.online) return { text: qq.degraded ? 'QQ 重试' : 'QQ', title: qq.mode === 'local' ? `QQ 已直连（${qq.name || qq.account || ''}）` : 'QQ 已连接', dot: qq.degraded ? 'dot-warn' : 'dot-ok', cls: qq.degraded ? 'pill-warn' : 'pill-ok' };
+  if (qq.blockedReason === 'desktop_in_use') return { text: 'QQ 待连', title: qq.error || '正在识别桌面 QQ', dot: 'dot-warn', cls: 'pill-warn' };
   if (qq.available || qq.launcherRunning || qq.ownedQQRunning) return { text: 'QQ 待扫码', title: 'QQ 等待扫码或启动中', dot: 'dot-warn', cls: 'pill-warn' };
-  return { text: 'QQ 未连', title: 'QQ 采集未开启', dot: '', cls: '' };
+  return { text: 'QQ 未连', title: '打开并登录电脑 QQ 后自动接入', dot: '', cls: '' };
 });
 
 const wxBadge = computed(() => {
