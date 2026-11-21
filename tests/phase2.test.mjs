@@ -8,7 +8,7 @@ import { Messaging } from '../lib/messaging.mjs';
 import { Maintenance } from '../lib/maintenance.mjs';
 import { EventLog } from '../lib/event-log.mjs';
 import { QQSupervisor } from '../lib/supervisor.mjs';
-import { normalizeEvent, validateTask, timeString, findDuplicateTask, summarizeTasks } from '../lib/domain.mjs';
+import { normalizeEvent, validateTask, timeString, findDuplicateTask, summarizeTasks, isStaleTask } from '../lib/domain.mjs';
 import { normalizeWechat } from '../lib/wechat-domain.mjs';
 import { analyzeBatch, chatContext, modelConfig } from '../lib/model.mjs';
 import { createApp } from '../server.mjs';
@@ -267,4 +267,22 @@ test('桌面 QQ 本地直读：自动发现群与消息，与历史 NapCat group
   const unmonMsgs = await (await api(`/api/conversations/${encodeURIComponent('qq:group:20002')}/messages`)).json();
   assert.equal(unmonMsgs.length, 2);
   assert.equal(app.store.messageCount('qq:group:20002'), 0);
+
+  // 待办新交互：支持彻底删除（DELETE /api/tasks/:id）与陈旧历史通知自动归档识别
+  const createdTask = await (await api('/api/tasks', { title: '测试可删除待办', dueDate: '2026-11-22' }, 'POST')).json();
+  assert.ok(createdTask.id);
+  const delRes = await api(`/api/tasks/${encodeURIComponent(createdTask.id)}`, undefined, 'DELETE');
+  assert.equal(delRes.status, 200);
+  assert.equal(app.store.task(createdTask.id), null);
+
+  const now = new Date('2026-11-21T10:00:00+08:00');
+  const staleAiTask = { id: 't1', title: '月初旧讲座', status: 'pending', relevance: 'everyone', dueDate: '2026-11-05', dueBasis: 'explicit' };
+  const activeAiTask = { id: 't2', title: '本周作业', status: 'pending', relevance: 'everyone', dueDate: '2026-11-22', dueBasis: 'explicit' };
+  const manualOldTask = { id: 't3', title: '手动记下的旧事项', status: 'pending', relevance: 'mine', dueDate: '2026-11-01', dueBasis: 'manual' };
+  assert.equal(isStaleTask(staleAiTask, now), true);
+  assert.equal(isStaleTask(activeAiTask, now), false);
+  assert.equal(isStaleTask(manualOldTask, now), false);
+  const summary = summarizeTasks([staleAiTask, activeAiTask, manualOldTask], now);
+  assert.equal(summary.pendingCount, 2);
+  assert.equal(summary.stalePendingCount, 1);
 });

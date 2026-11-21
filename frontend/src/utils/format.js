@@ -8,6 +8,13 @@ export function datePlusDays(days) {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(new Date(Date.now() + days * 86_400_000));
 }
 
+export function isStaleHistoricalTask(task) {
+  if (!task || task.status !== 'pending') return false;
+  if (task.origin === 'manual' || task.dueBasis === 'manual') return false;
+  const staleDueCutoff = datePlusDays(-7);
+  return Boolean(task.dueDate && task.dueDate < staleDueCutoff);
+}
+
 export function todayHeading() {
   return new Intl.DateTimeFormat('zh-CN', {
     timeZone: TZ,

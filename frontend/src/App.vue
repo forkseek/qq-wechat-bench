@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from './api.js';
+import { isStaleHistoricalTask } from './utils/format.js';
 import StatusPills from './components/StatusPills.vue';
 import AssistantDrawer from './components/AssistantDrawer.vue';
 import TaskDetailModal from './components/TaskDetailModal.vue';
@@ -49,7 +50,7 @@ function showToast(text, kind = 'info') {
 }
 
 const pendingCount = computed(() =>
-  (state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other').length
+  (state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other' && !isStaleHistoricalTask(t)).length
 );
 
 const qqBanner = computed(() => {
@@ -203,6 +204,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
           @refresh="refresh(true)"
           @open-task="id => { taskModal = { open: true, mode: 'edit', taskId: id }; }"
           @create-task="() => { taskModal = { open: true, mode: 'create', taskId: '' }; }"
+          @open-messages="openMessagesFor"
           @navigate="v => navigate(v, 'connections')"
           @toast="showToast"
         />

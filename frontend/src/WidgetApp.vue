@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from './api.js';
-import { formatDue, sortPendingTasks, lunarHeading } from './utils/format.js';
+import { formatDue, sortPendingTasks, lunarHeading, isStaleHistoricalTask } from './utils/format.js';
 
 const state = ref(null);
 const error = ref('');
@@ -10,17 +10,23 @@ const quickTitle = ref('');
 const quickDue = ref('');
 const adding = ref(false);
 const busyId = ref('');
+const batchBusy = ref(false);
 const showDate = ref(false);
 const toastText = ref('');
+const selectedIds = ref(new Set());
+const undoAction = ref(null);
 let timer = null;
 let toastTimer = null;
+let undoTimer = null;
 
 const inDesktop = computed(() => typeof window !== 'undefined' && Boolean(window.pywebview?.api));
 const convMap = computed(() => new Map((state.value?.conversations || []).map(c => [c.id, c])));
 const lunarText = lunarHeading();
 
 const pendingTasks = computed(() =>
-  sortPendingTasks((state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other'))
+  sortPendingTasks(
+    (state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other' && !isStaleHistoricalTask(t))
+  )
 );
 
 const qqOnline = computed(() => Boolean(state.value?.qq?.online));
@@ -32,6 +38,39 @@ function notify(msg) {
   toastTimer = setTimeout(() => { toastText.value = ''; }, 2400);
 }
 
+function recordUndo(label, snapshots) {
+  clearTimeout(undoTimer);
+  undoAction.value = { label, snapshots };
+  undoTimer = setTimeout(() => { undoAction.value = null; }, 9000);
+}
+
+async function performUndo() {
+  const current = undoAction.value;
+  if (!current || batchBusy.value) return;
+  undoAction.value = null;
+  clearTimeout(undoTimer);
+  batchBusy.value = true;
+  try {
+    await refresh();
+    const latestMap = new Map((state.value?.tasks || []).map(t => [t.id, t]));
+    for (const snap of current.snapshots) {
+      const latest = latestMap.get(snap.id);
+      if (!latest) continue;
+      await api(`/api/tasks/${encodeURIComponent(snap.id)}`, {
+        revision: latest.revision,
+        status: snap.status,
+        needsReview: snap.needsReview
+      }, 'PATCH');
+    }
+    notify('已撤销上一步');
+    await refresh();
+  } catch (err) {
+    notify(err.message);
+  } finally {
+    batchBusy.value = false;
+  }
+}
+
 async function refresh() {
   try {
     state.value = await api('/api/state?compact=1');
@@ -41,20 +80,78 @@ async function refresh() {
   }
 }
 
-async function complete(task) {
+function toggleSelect(id) {
+  const next = new Set(selectedIds.value);
+  next.has(id) ? next.delete(id) : next.add(id);
+  selectedIds.value = next;
+}
+
+function clearSelection() {
+  selectedIds.value = new Set();
+}
+
+async function setTaskStatus(task, targetStatus) {
   busyId.value = task.id;
+  const prevSnap = [{ id: task.id, status: task.status, needsReview: Boolean(task.needsReview) }];
   try {
     await api(`/api/tasks/${encodeURIComponent(task.id)}`, {
       revision: task.revision,
-      status: 'done',
+      status: targetStatus,
       needsReview: false
     }, 'PATCH');
-    notify(`已勾销「${task.title}」`);
+    recordUndo(targetStatus === 'done' ? `已完成「${task.title}」` : `已忽略「${task.title}」`, prevSnap);
+    if (selectedIds.value.has(task.id)) {
+      const next = new Set(selectedIds.value);
+      next.delete(task.id);
+      selectedIds.value = next;
+    }
     await refresh();
   } catch (err) {
     notify(err.message);
   } finally {
     busyId.value = '';
+  }
+}
+
+async function batchUpdateStatus(targetStatus) {
+  if (!selectedIds.value.size || batchBusy.value) return;
+  batchBusy.value = true;
+  try {
+    const taskMap = new Map((state.value?.tasks || []).map(t => [t.id, t]));
+    const targets = [...selectedIds.value].map(id => taskMap.get(id)).filter(Boolean);
+    const snapshots = targets.map(t => ({ id: t.id, status: t.status, needsReview: Boolean(t.needsReview) }));
+    for (const t of targets) {
+      await api(`/api/tasks/${encodeURIComponent(t.id)}`, {
+        revision: t.revision,
+        status: targetStatus,
+        needsReview: false
+      }, 'PATCH');
+    }
+    selectedIds.value = new Set();
+    recordUndo(`${targetStatus === 'done' ? '批量完成' : '批量忽略'} ${targets.length} 项`, snapshots);
+    await refresh();
+  } catch (err) {
+    notify(err.message);
+  } finally {
+    batchBusy.value = false;
+  }
+}
+
+async function batchDelete() {
+  if (!selectedIds.value.size || batchBusy.value) return;
+  batchBusy.value = true;
+  try {
+    const ids = [...selectedIds.value];
+    for (const id of ids) {
+      await api(`/api/tasks/${encodeURIComponent(id)}`, undefined, 'DELETE');
+    }
+    selectedIds.value = new Set();
+    notify(`已删除 ${ids.length} 项`);
+    await refresh();
+  } catch (err) {
+    notify(err.message);
+  } finally {
+    batchBusy.value = false;
   }
 }
 
@@ -103,7 +200,11 @@ onMounted(() => {
   timer = setInterval(() => { if (!document.hidden) refresh(); }, 6000);
 });
 
-onUnmounted(() => { if (timer) clearInterval(timer); });
+onUnmounted(() => {
+  if (timer) clearInterval(timer);
+  clearTimeout(toastTimer);
+  clearTimeout(undoTimer);
+});
 </script>
 
 <template>
@@ -136,6 +237,23 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
       </div>
     </header>
 
+    <!-- 多选批量动作栏 -->
+    <div v-if="selectedIds.size > 0" class="slip-sel-bar">
+      <span class="slip-sel-count">已选 <strong class="num">{{ selectedIds.size }}</strong> 项</span>
+      <div class="slip-sel-btns">
+        <button type="button" class="slip-act-btn ok" :disabled="batchBusy" @click="batchUpdateStatus('done')">✓ 完成</button>
+        <button type="button" class="slip-act-btn" :disabled="batchBusy" @click="batchUpdateStatus('cancelled')">× 忽略</button>
+        <button type="button" class="slip-act-btn danger" :disabled="batchBusy" @click="batchDelete">删除</button>
+        <button type="button" class="slip-act-btn" :disabled="batchBusy" @click="clearSelection">取消</button>
+      </div>
+    </div>
+
+    <!-- 撤销提示栏 -->
+    <div v-if="undoAction" class="slip-undo-bar">
+      <span class="slip-undo-text">{{ undoAction.label }}</span>
+      <button type="button" class="slip-undo-btn" :disabled="batchBusy" @click="performUndo">↶ 撤销</button>
+    </div>
+
     <!-- 线装宣纸便签正文 -->
     <div class="slip-body">
       <div v-if="error && !state" class="slip-empty muted">{{ error }}</div>
@@ -146,13 +264,25 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
         <p class="muted">下方可速记一条，群通知也会自动摘录至此。</p>
       </div>
       <ul v-else class="slip-list">
-        <li v-for="task in pendingTasks" :key="task.id" class="slip-item" :class="{ overdue: formatDue(task).state === 'overdue' }">
+        <li
+          v-for="task in pendingTasks"
+          :key="task.id"
+          class="slip-item"
+          :class="{
+            overdue: formatDue(task).state === 'overdue',
+            selected: selectedIds.has(task.id)
+          }"
+        >
           <button
+            type="button"
             class="slip-check"
-            :disabled="busyId === task.id"
-            :aria-label="`完成 ${task.title}`"
-            @click="complete(task)"
-          ></button>
+            :class="{ checked: selectedIds.has(task.id) }"
+            :aria-label="`选择 ${task.title}`"
+            title="点击勾选（支持多选批量操作）"
+            @click="toggleSelect(task.id)"
+          >
+            <span v-if="selectedIds.has(task.id)" class="slip-check-mark">✓</span>
+          </button>
           <div class="slip-item-main">
             <div class="slip-item-title">
               <span>{{ task.title }}</span>
@@ -162,6 +292,26 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
               <span class="num" :class="`due-${formatDue(task).state}`">{{ formatDue(task).text }}</span>
               <span class="muted">· {{ task.conversationId ? (convMap.get(task.conversationId)?.title || '群通知') : '手记' }}</span>
             </div>
+          </div>
+          <div class="slip-item-actions">
+            <button
+              type="button"
+              class="slip-mini-btn ok"
+              :disabled="busyId === task.id"
+              title="标记完成"
+              @click="setTaskStatus(task, 'done')"
+            >
+              完成
+            </button>
+            <button
+              type="button"
+              class="slip-mini-btn"
+              :disabled="busyId === task.id"
+              title="忽略此通知"
+              @click="setTaskStatus(task, 'cancelled')"
+            >
+              忽略
+            </button>
           </div>
         </li>
       </ul>
@@ -286,6 +436,47 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
 .slip-icon:hover { background: var(--paper-soft); color: var(--pine); }
 .slip-icon.active { background: var(--pine-wash); color: var(--pine); }
 
+.slip-sel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(31, 92, 73, 0.08);
+  border-bottom: 1px solid var(--pine-border);
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+
+.slip-sel-count { color: var(--pine); }
+.slip-sel-btns { display: flex; align-items: center; gap: 4px; }
+
+.slip-act-btn {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--paper-card);
+  color: var(--ink-2);
+}
+.slip-act-btn:hover { border-color: var(--pine-border); color: var(--pine); }
+.slip-act-btn.ok { background: var(--pine); border-color: var(--pine); color: #faf7f0; }
+.slip-act-btn.danger:hover { border-color: var(--seal); color: var(--seal); }
+
+.slip-undo-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px;
+  background: rgba(242, 237, 226, 0.92);
+  border-bottom: 1px solid var(--hairline);
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+.slip-undo-text { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slip-undo-btn { color: var(--pine); font-weight: 600; white-space: nowrap; }
+
 .slip-body {
   flex: 1;
   overflow-y: auto;
@@ -338,6 +529,7 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
 }
 .slip-item:last-child { border-bottom: 0; }
 .slip-item.overdue { background: rgba(181, 54, 36, 0.035); margin: 0 -12px; padding: 10px 14px; }
+.slip-item.selected { background: rgba(31, 92, 73, 0.06); margin: 0 -12px; padding: 10px 14px; }
 
 .slip-check {
   width: 17px;
@@ -347,8 +539,22 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
   margin-top: 2px;
   flex-shrink: 0;
   background: var(--paper-card);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 .slip-check:hover { border-color: var(--pine); background: var(--pine-wash); }
+.slip-check.checked {
+  border-color: var(--pine);
+  background: var(--pine);
+  color: #faf7f0;
+}
+.slip-check-mark {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
 
 .slip-item-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .slip-item-title {
@@ -378,6 +584,25 @@ onUnmounted(() => { if (timer) clearInterval(timer); });
   gap: 4px;
   flex-wrap: wrap;
 }
+
+.slip-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.slip-mini-btn {
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--paper-card);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.slip-mini-btn:hover { border-color: var(--hairline-strong); color: var(--ink); }
+.slip-mini-btn.ok:hover { border-color: var(--pine); background: var(--pine-wash); color: var(--pine); }
 
 .due-overdue { color: var(--seal); font-weight: 600; }
 .due-today { color: var(--ochre); font-weight: 600; }
