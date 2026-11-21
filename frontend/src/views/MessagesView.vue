@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { api, uploadAttachment, newRequestId } from '../api.js';
-import { formatTime, formatBytes, analysisStateLabel } from '../utils/format.js';
+import { formatTime, formatBytes, analysisStateLabel, monogramChar } from '../utils/format.js';
 
 const props = defineProps({
   state: { type: Object, required: true },
@@ -265,10 +265,13 @@ function outboxStatusLabel(item) {
             @click="selectedId = c.id"
           >
             <div class="conv-item-top">
-              <span class="platform-pill" :class="c.platform === 'wechat' ? 'pill-wx' : 'pill-qq'">
-                {{ c.platform === 'wechat' ? '微信' : 'QQ' }}
+              <span class="conv-mini-seal" :class="c.platform === 'wechat' ? 'pill-wx' : 'pill-qq'">
+                {{ monogramChar(c.title) }}
               </span>
               <span class="conv-item-title">{{ c.title }}</span>
+              <span class="platform-pill" :class="c.platform === 'wechat' ? 'pill-wx' : 'pill-qq'">
+                {{ c.platform === 'wechat' ? '微' : 'Q' }}
+              </span>
               <span v-if="c.monitored" class="follow-dot" title="已开启保存与整理"></span>
             </div>
             <div class="conv-item-sub muted">
@@ -508,15 +511,28 @@ function outboxStatusLabel(item) {
   min-width: 0;
 }
 
+.conv-mini-seal {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .platform-pill {
-  font-size: 11px;
-  padding: 1px 6px;
+  font-size: 10.5px;
+  padding: 1px 5px;
   border-radius: 4px;
   white-space: nowrap;
   flex-shrink: 0;
 }
-.pill-wx { background: var(--wx-wash); color: var(--wx); }
-.pill-qq { background: var(--qq-wash); color: var(--qq); }
+.pill-wx { background: var(--wx-wash); color: var(--wx); border: 1px solid var(--wx-border); }
+.pill-qq { background: var(--qq-wash); color: var(--qq); border: 1px solid var(--qq-border); }
 
 .conv-item-title {
   font-size: 13.5px;

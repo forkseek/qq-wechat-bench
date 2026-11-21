@@ -1,54 +1,66 @@
-/* 讯课 · 素宣书案 × 线装日程（Neo-Chinese Editorial / Ink-Wash Xuan Paper）
-   素宣通透底色 + 极淡青黛水墨晕染 + 线装书双栏细线 + 朱砂印章点睛 */
+/* 讯课 · 宋韵书房 × 现代高定编辑界面（Editorial Song-Dynasty Stationery & Ink Atelier）
+   素宣叠页质感 + 远山青黛晕染 + 乌丝栏线装书脊 + 朱文篆刻印章 */
 
 :root {
-  --paper: #f9f6ee;
+  --paper: #f6f1e5;
   --paper-card: #fffdf8;
-  --paper-soft: #f2ede1;
-  --paper-hover: #ebe4d4;
-  --hairline: #e5ddc9;
-  --hairline-strong: #d3c7ae;
-  --book-frame: #dcd1bc;
+  --paper-elevated: #ffffff;
+  --paper-soft: #efe8d8;
+  --paper-hover: #e7decb;
+  --hairline: #e2d8c3;
+  --hairline-strong: #cbbca0;
+  --book-frame: #d5c7ad;
 
-  --ink: #1b241f;
-  --ink-2: #4f5c54;
-  --ink-3: #838e86;
+  --ink: #161f1a;
+  --ink-2: #44524a;
+  --ink-3: #78847c;
 
-  --pine: #1f4f3d;
-  --pine-hi: #2b6952;
-  --pine-deep: #153428;
-  --pine-wash: #e6f0ea;
-  --pine-border: #c1d8cb;
+  --pine: #1b4938;
+  --pine-hi: #25614b;
+  --pine-deep: #102d22;
+  --pine-wash: #e4efe8;
+  --pine-border: #b8d3c4;
 
-  --celadon: #5d7b74;
-  --celadon-wash: rgba(31, 79, 61, 0.048);
-  --mist-wash: rgba(74, 102, 114, 0.042);
+  --celadon: #53746c;
+  --celadon-wash: rgba(27, 73, 56, 0.065);
+  --mist-wash: rgba(45, 93, 140, 0.048);
 
-  --seal: #b53624;
-  --seal-hi: #96291a;
-  --seal-wash: #faece8;
-  --seal-border: #e5b7ae;
+  --seal: #b83322;
+  --seal-hi: #962617;
+  --seal-wash: #fbeae6;
+  --seal-border: #e5b3a9;
 
-  --ochre: #9a691b;
-  --ochre-wash: #f8efdc;
-  --ochre-border: #e5cfa2;
+  --ochre: #986516;
+  --ochre-wash: #faf0da;
+  --ochre-border: #e3c896;
 
-  --wx: #25754a;
-  --wx-wash: #e6f4ec;
-  --qq: #2d5d8c;
-  --qq-wash: #e8f0f9;
+  --wx: #1f7246;
+  --wx-wash: #e3f3ea;
+  --wx-border: #b8dec8;
+  --qq: #275888;
+  --qq-wash: #e4eef9;
+  --qq-border: #b8cfe8;
 
   --font-display: "STKaiti", "KaiTi", "Kaiti SC", "FangSong", "Songti SC", "SimSun", serif;
   --font-serif: "Songti SC", "NSimSun", "SimSun", "STSong", Georgia, serif;
   --font-body: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Variable", "PingFang SC", sans-serif;
   --font-num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", sans-serif;
 
-  --radius-sm: 5px;
-  --radius: 9px;
-  --radius-lg: 14px;
-  --shadow-sm: 0 1px 2px rgba(27, 36, 31, 0.04);
-  --shadow-sheet: 0 18px 42px -28px rgba(27, 45, 36, 0.22), 0 1px 0 rgba(255, 255, 255, 0.85) inset;
-  --shadow-md: 0 14px 34px -18px rgba(21, 52, 40, 0.24);
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 2px 5px rgba(22, 31, 26, 0.045), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  /* 叠页宣纸立体阴影：模拟三层线装书页叠放于书案之上 */
+  --shadow-sheet:
+    0 1px 0 #fffdf9 inset,
+    0 3px 0 -1px #fbf7ee,
+    0 4px 0 -1px #d6c8ae,
+    0 7px 0 -2px #f4ede0,
+    0 8px 0 -2px #cbbca1,
+    0 22px 48px -18px rgba(20, 42, 32, 0.18),
+    0 4px 12px rgba(22, 35, 28, 0.05);
+  --shadow-md: 0 16px 36px -16px rgba(16, 45, 34, 0.24);
+  --shadow-float: 0 12px 30px -10px rgba(20, 44, 34, 0.15), 0 1px 0 rgba(255, 255, 255, 0.85) inset;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   font-family: var(--font-body);

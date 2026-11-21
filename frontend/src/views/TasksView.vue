@@ -6,6 +6,8 @@ import {
   datePlusDays,
   todayHeading,
   lunarHeading,
+  shichenHeading,
+  monogramChar,
   formatDue,
   formatTime,
   sortPendingTasks,
@@ -39,6 +41,7 @@ const lastUndo = ref(null); // { label, items: [{ id, status, needsReview }] }
 
 const convMap = computed(() => new Map((props.state?.conversations || []).map(c => [c.id, c])));
 const allTasks = computed(() => props.state?.tasks || []);
+const monitoredGroupCount = computed(() => (props.state?.conversations || []).filter(c => c.monitored).length);
 
 // 将「当前活跃待办」与「超过 7 天的历史补拉旧通知」分开
 const freshPending = computed(() =>
@@ -66,7 +69,8 @@ const stats = computed(() => {
     review: list.filter(t => t.needsReview).length,
     week: list.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= in7).length,
     overdue: list.filter(t => t.dueDate && t.dueDate < today).length,
-    stale: stalePending.value.length
+    stale: stalePending.value.length,
+    done: doneTasks.value.length
   };
 });
 
@@ -97,6 +101,7 @@ const allVisibleSelected = computed(() =>
 const latestRun = computed(() => (props.state?.runs || [])[0] || null);
 const olderRuns = computed(() => (props.state?.runs || []).slice(1));
 const lunarText = lunarHeading();
+const shichen = shichenHeading();
 
 function convTitle(task) {
   if (!task.conversationId) return '手记';
@@ -345,17 +350,31 @@ function describeRun(run) {
 
 <template>
   <section class="planner-spread">
-    <!-- 书首抬头 -->
-    <header class="planner-head">
+    <!-- 宋韵书卷卷首画匣（远山云烟水墨暗纹 + 时辰印 + 乌丝栏四联书签） -->
+    <header class="hero-plaque">
+      <svg class="hero-ink-art" viewBox="0 0 560 140" fill="none" aria-hidden="true">
+        <path d="M220 140 C275 88, 330 74, 395 112 C445 78, 495 56, 560 95 L560 140 Z" fill="rgba(27, 73, 56, 0.045)" />
+        <path d="M310 140 C360 102, 420 82, 480 116 C512 96, 538 88, 560 104 L560 140 Z" fill="rgba(45, 93, 140, 0.038)" />
+        <circle cx="486" cy="38" r="16" fill="rgba(184, 51, 34, 0.07)" />
+      </svg>
+
       <div class="head-date-block">
-        <p class="date-line">
+        <div class="date-line">
+          <span class="shichen-stamp">{{ shichen.seal }}</span>
           <span v-if="lunarText" class="lunar-text">{{ lunarText }}</span>
-          <span v-if="lunarText" class="date-sep" aria-hidden="true">·</span>
+          <span class="date-sep" aria-hidden="true">·</span>
           <span>{{ todayHeading() }}</span>
-        </p>
+          <span class="date-sep" aria-hidden="true">·</span>
+          <span class="shichen-phrase">{{ shichen.phrase }}</span>
+        </div>
+
         <div class="title-lockup">
-          <h1 class="planner-title">今日待办</h1>
-          <span class="vertical-seal" aria-hidden="true">案头</span>
+          <h1 class="planner-title">今日案头</h1>
+          <span class="vertical-seal" aria-hidden="true">卷壹</span>
+          <p class="hero-sub">
+            静默守护 <strong class="num">{{ monitoredGroupCount }}</strong> 个关注群聊 ·
+            当前 <strong class="num">{{ stats.pending }}</strong> 项待办候审
+          </p>
         </div>
       </div>
 
@@ -375,17 +394,19 @@ function describeRun(run) {
             <span class="metric-k">待确认</span>
             <strong class="metric-v num" :class="{ 'v-ochre': stats.review > 0 }">{{ stats.review }}</strong>
           </button>
-          <template v-if="stats.overdue > 0">
-            <span class="metric-div" aria-hidden="true"></span>
-            <button class="metric-chip" @click="switchTab('pending')">
-              <span class="metric-k">近期逾期</span>
-              <strong class="metric-v num v-seal">{{ stats.overdue }}</strong>
-            </button>
-          </template>
+          <span class="metric-div" aria-hidden="true"></span>
+          <button v-if="stats.overdue > 0" class="metric-chip" @click="switchTab('pending')">
+            <span class="metric-k">近期逾期</span>
+            <strong class="metric-v num v-seal">{{ stats.overdue }}</strong>
+          </button>
+          <button v-else class="metric-chip" :class="{ active: tab === 'done' }" @click="switchTab('done')">
+            <span class="metric-k">已勾销</span>
+            <strong class="metric-v num">{{ stats.done }}</strong>
+          </button>
         </div>
 
         <button class="btn btn-primary write-btn" @click="showQuickCreate = !showQuickCreate">
-          {{ showQuickCreate ? '收起手记' : '＋ 记一条' }}
+          <span>{{ showQuickCreate ? '收起手记' : '✒ 记一条' }}</span>
         </button>
       </div>
     </header>
@@ -421,32 +442,38 @@ function describeRun(run) {
 
     <!-- 线装主卷 -->
     <div class="book-sheet planner-sheet">
-      <!-- 书页顶栏：分类章目 + 无框底线搜索 -->
+      <!-- 书页顶栏：分类章目 + 雕花检索匣 -->
       <div class="sheet-toolbar">
         <div class="ink-tabs" role="tablist">
           <button class="ink-tab" :class="{ active: tab === 'pending' }" @click="switchTab('pending')">
-            当前待办 <span class="num">({{ stats.pending }})</span>
+            <span>当前待办</span>
+            <span class="tab-pill num">{{ stats.pending }}</span>
           </button>
           <button class="ink-tab" :class="{ active: tab === 'week' }" @click="switchTab('week')">
-            七日内 <span class="num">({{ stats.week }})</span>
+            <span>七日内</span>
+            <span class="tab-pill num">{{ stats.week }}</span>
           </button>
           <button class="ink-tab" :class="{ active: tab === 'review' }" @click="switchTab('review')">
-            待确认 <span class="num">({{ stats.review }})</span>
+            <span>待确认</span>
+            <span class="tab-pill num" :class="{ 'pill-ochre': stats.review > 0 }">{{ stats.review }}</span>
           </button>
           <button class="ink-tab" :class="{ active: tab === 'done' }" @click="switchTab('done')">
-            已完成 <span class="num">({{ doneTasks.length }})</span>
+            <span>已完成</span>
+            <span class="tab-pill num">{{ doneTasks.length }}</span>
           </button>
           <button class="ink-tab" :class="{ active: tab === 'cancelled' }" @click="switchTab('cancelled')">
-            已忽略 <span class="num">({{ cancelledTasks.length }})</span>
+            <span>已忽略</span>
+            <span class="tab-pill num">{{ cancelledTasks.length }}</span>
           </button>
           <button v-if="stats.stale > 0 || tab === 'stale'" class="ink-tab" :class="{ active: tab === 'stale' }" @click="switchTab('stale')">
-            历史旧通知 <span class="num">({{ stats.stale }})</span>
+            <span>历史旧通知</span>
+            <span class="tab-pill num">{{ stats.stale }}</span>
           </button>
         </div>
 
-        <div class="underline-search">
+        <div class="search-capsule">
           <span class="search-glyph muted" aria-hidden="true">⌕</span>
-          <input v-model="query" class="bare-input" placeholder="检索事项或群名…" />
+          <input v-model="query" class="bare-input" placeholder="检索事项、群名或关键词…" />
           <button v-if="query" class="clear-x" @click="query = ''" aria-label="清除搜索">×</button>
         </div>
       </div>
@@ -517,7 +544,7 @@ function describeRun(run) {
           <span class="mini-circle" :class="{ checked: allVisibleSelected }">
             <span v-if="allVisibleSelected">✓</span>
           </span>
-          <span>全选</span>
+          <span>全选当页</span>
         </button>
         <template v-if="latestRun">
           <span class="colophon-tag" :class="{ 'tag-err': latestRun.error }">近录</span>
@@ -544,12 +571,15 @@ function describeRun(run) {
           v-for="task in visibleTasks"
           :key="task.id"
           class="entry-block"
-          :class="{
-            'is-selected': selectedIds.has(task.id),
-            'is-expanded': expandedId === task.id,
-            'is-done': task.status === 'done' || task.status === 'cancelled',
-            'is-overdue': formatDue(task).state === 'overdue' && tab !== 'stale'
-          }"
+          :class="[
+            `state-${formatDue(task).state}`,
+            {
+              'is-selected': selectedIds.has(task.id),
+              'is-expanded': expandedId === task.id,
+              'is-done': task.status === 'done' || task.status === 'cancelled',
+              'is-overdue': formatDue(task).state === 'overdue' && tab !== 'stale'
+            }
+          ]"
         >
           <div class="entry-row">
             <div class="entry-left">
@@ -578,8 +608,15 @@ function describeRun(run) {
 
                 <div class="entry-meta">
                   <span class="source-chip">
-                    <span v-if="convPlatform(task)" class="plat-dot" :class="convPlatform(task) === 'wechat' ? 'dot-wx' : 'dot-qq'"></span>
-                    <span>{{ convTitle(task) }}</span>
+                    <span
+                      v-if="convPlatform(task)"
+                      class="plat-badge"
+                      :class="convPlatform(task) === 'wechat' ? 'plat-wx' : 'plat-qq'"
+                    >
+                      {{ convPlatform(task) === 'wechat' ? '微信' : 'QQ' }}
+                    </span>
+                    <span v-else class="plat-badge plat-manual">手记</span>
+                    <span class="source-name">{{ convTitle(task) }}</span>
                   </span>
                   <span v-if="task.sourceAt" class="muted">· {{ formatTime(task.sourceAt) }}通知</span>
                   <span v-if="task.description" class="entry-desc muted">· {{ task.description }}</span>
@@ -588,7 +625,7 @@ function describeRun(run) {
             </div>
 
             <div class="entry-right">
-              <div class="due-block" @click="toggleExpand(task)">
+              <div class="due-ticket" :class="`ticket-${formatDue(task).state}`" @click="toggleExpand(task)">
                 <span class="due-main num" :class="`due-${formatDue(task).state}`" :title="formatDue(task).text">
                   {{ formatDue(task).text }}
                 </span>
@@ -606,7 +643,7 @@ function describeRun(run) {
                     title="我已完成这件事"
                     @click.stop="applyStatusToTasks([task], 'done', '标记为已完成')"
                   >
-                    完成
+                    ✓ 完成
                   </button>
                   <button
                     class="row-btn row-btn-ignore"
@@ -623,7 +660,7 @@ function describeRun(run) {
                     :disabled="busy"
                     @click.stop="applyStatusToTasks([task], 'pending', '恢复为待办')"
                   >
-                    恢复待办
+                    ↶ 恢复待办
                   </button>
                 </template>
                 <button
@@ -638,13 +675,16 @@ function describeRun(run) {
             </div>
           </div>
 
-          <!-- 原地内联展开面板：左边看群原话，右边快捷改期/编辑 -->
+          <!-- 原地内联展开批注笺：左边看群原话，右边快捷改期/编辑 -->
           <div v-if="expandedId === task.id && detailCache[task.id]" class="inline-drawer">
             <div class="drawer-grid">
               <!-- 左栏：群通知来源原话 -->
               <div class="drawer-col">
                 <div class="drawer-col-head">
-                  <h3 class="drawer-col-title">来源群原话</h3>
+                  <div class="drawer-head-title">
+                    <span class="drawer-seal" aria-hidden="true">源</span>
+                    <h3 class="drawer-col-title">来源群原话</h3>
+                  </div>
                   <button
                     v-if="task.conversationId"
                     type="button"
@@ -662,7 +702,10 @@ function describeRun(run) {
                 <div v-else class="inline-sources">
                   <div v-for="msg in detailCache[task.id].sources" :key="msg.id" class="inline-source-card">
                     <div class="inline-source-meta">
-                      <strong>{{ msg.senderName }}</strong>
+                      <span class="sender-badge">
+                        <span class="sender-monogram">{{ monogramChar(msg.senderName) }}</span>
+                        <strong>{{ msg.senderName }}</strong>
+                      </span>
                       <time class="num muted">{{ formatTime(msg.sentAt, true) }}</time>
                     </div>
                     <p class="inline-source-text">{{ msg.content }}</p>
@@ -678,7 +721,10 @@ function describeRun(run) {
               <!-- 右栏：快捷改期与内容微调 -->
               <form class="drawer-col drawer-edit" @submit.prevent="saveInlineEdit(task)">
                 <div class="drawer-col-head">
-                  <h3 class="drawer-col-title">快捷改期与微调</h3>
+                  <div class="drawer-head-title">
+                    <span class="drawer-seal seal-pine" aria-hidden="true">改</span>
+                    <h3 class="drawer-col-title">快捷改期与微调</h3>
+                  </div>
                   <div class="quick-date-row">
                     <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 0)">今天</button>
                     <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 1)">明天</button>
@@ -745,7 +791,7 @@ function describeRun(run) {
           }}
         </p>
         <div class="zen-actions">
-          <button v-if="!query && tab === 'pending'" class="btn btn-primary" @click="showQuickCreate = true">＋ 手记一条待办</button>
+          <button v-if="!query && tab === 'pending'" class="btn btn-primary" @click="showQuickCreate = true">✒ 手记一条待办</button>
           <button v-if="tab === 'pending' && stats.stale > 0" class="btn btn-secondary" @click="switchTab('stale')">
             查看 {{ stats.stale }} 条历史旧通知
           </button>
@@ -756,7 +802,10 @@ function describeRun(run) {
     <!-- 书尾注脚：历史旧通知提示 + 他人事项折叠 -->
     <footer class="sheet-footer">
       <div v-if="stats.stale > 0 && tab !== 'stale'" class="stale-notice-bar">
-        <span>已自动隐藏 <strong class="num">{{ stats.stale }}</strong> 条 7 天前的历史补拉旧通知（不计入今日逾期）</span>
+        <div class="stale-left">
+          <span class="stale-seal">旧闻</span>
+          <span>已自动收纳 <strong class="num">{{ stats.stale }}</strong> 条 7 天前的历史补拉旧通知（不计入今日逾期）</span>
+        </div>
         <div class="stale-actions">
           <button class="btn-link" @click="switchTab('stale')">查看旧通知</button>
           <button class="btn-link" :disabled="busy" @click="applyStatusToTasks(stalePending, 'cancelled', '历史旧通知批量忽略')">
@@ -792,7 +841,11 @@ function describeRun(run) {
         </div>
       </div>
 
-      <p class="motto-line">消息有出处 · 事情有着落</p>
+      <div class="motto-lockup">
+        <span class="motto-rule" aria-hidden="true"></span>
+        <p class="motto-line">消息有出处 · 事情有着落</p>
+        <span class="motto-rule" aria-hidden="true"></span>
+      </div>
     </footer>
   </section>
 </template>
@@ -804,45 +857,86 @@ function describeRun(run) {
   gap: 18px;
 }
 
-.planner-head {
+/* 卷首宋韵画匣 */
+.hero-plaque {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
-  padding: 4px 2px 2px;
+  padding: 20px 24px;
+  border-radius: 10px;
+  border: 1px solid var(--book-frame);
+  background:
+    linear-gradient(135deg, rgba(255, 253, 248, 0.96) 0%, rgba(247, 241, 228, 0.9) 100%);
+  box-shadow: var(--shadow-float);
+}
+
+.hero-plaque::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(213, 199, 173, 0.45);
+  border-radius: 7px;
+  pointer-events: none;
+}
+
+.hero-ink-art {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  height: 120px;
+  pointer-events: none;
 }
 
 .head-date-block {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 9px;
 }
 
 .date-line {
   font-size: 12.5px;
-  color: var(--ink-3);
+  color: var(--ink-2);
   letter-spacing: 0.04em;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.lunar-text { color: var(--pine); font-weight: 500; }
+.shichen-stamp {
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--seal);
+  color: #fdf8f2;
+  letter-spacing: 0.08em;
+}
+
+.lunar-text { color: var(--pine); font-weight: 600; }
+.shichen-phrase { color: var(--ink-3); font-family: var(--font-display); font-size: 13.5px; }
 
 .title-lockup {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .planner-title {
   font-family: var(--font-display);
-  font-size: 34px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  line-height: 1.15;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
   color: var(--ink);
 }
 
@@ -850,17 +944,26 @@ function describeRun(run) {
   writing-mode: vertical-rl;
   font-family: var(--font-display);
   font-size: 11px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.14em;
   line-height: 1;
   padding: 4px 3px;
-  border: 1px solid rgba(181, 54, 36, 0.55);
+  border: 1px solid rgba(184, 51, 34, 0.6);
   border-radius: 2px;
   color: var(--seal);
-  background: rgba(250, 236, 232, 0.55);
+  background: rgba(251, 234, 230, 0.7);
   user-select: none;
+  align-self: center;
+}
+
+.hero-sub {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin-left: 4px;
 }
 
 .head-right {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -869,37 +972,53 @@ function describeRun(run) {
 
 .bookmark-metrics {
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   gap: 2px;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--hairline);
-  background: rgba(255, 253, 248, 0.78);
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline-strong);
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: 0 2px 6px rgba(22, 31, 26, 0.04), 0 1px 0 #fff inset;
 }
 
 .metric-chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  transition: background 0.14s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  transition: all 0.15s var(--ease);
   white-space: nowrap;
 }
 .metric-chip:hover { background: var(--paper-soft); }
-.metric-chip.active { background: var(--pine-wash); }
+.metric-chip.active {
+  background: var(--pine-wash);
+}
+.metric-chip.active::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--pine);
+}
 
-.metric-k { font-size: 12px; color: var(--ink-3); }
-.metric-v { font-size: 17px; font-weight: 700; color: var(--pine); line-height: 1; }
+.metric-k { font-size: 11.5px; color: var(--ink-3); }
+.metric-v { font-size: 20px; font-weight: 700; color: var(--pine); line-height: 1.05; }
 .v-ochre { color: var(--ochre); }
 .v-seal { color: var(--seal); }
 
-.metric-div { width: 1px; height: 14px; background: var(--hairline); }
-.write-btn { padding: 8px 16px; }
+.metric-div { width: 1px; margin: 6px 0; background: var(--hairline); }
+.write-btn { padding: 10px 18px; font-size: 14px; }
 
 /* 内联新建待办栏 */
 .quick-create-box {
-  padding: 14px 18px 14px 24px;
+  padding: 16px 20px 16px 26px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -920,13 +1039,14 @@ function describeRun(run) {
 .qc-actions { display: flex; gap: 6px; margin-left: auto; }
 
 .mini-date-pill {
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--hairline-strong);
   background: var(--paper);
   font-size: 12px;
   color: var(--ink-2);
   white-space: nowrap;
+  transition: all 0.14s;
 }
 .mini-date-pill:hover {
   border-color: var(--pine-border);
@@ -936,7 +1056,7 @@ function describeRun(run) {
 
 /* 线装主卷 */
 .planner-sheet {
-  padding-left: 14px;
+  padding-left: 16px;
   overflow: hidden;
 }
 
@@ -945,50 +1065,75 @@ function describeRun(run) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 22px 0;
-  border-bottom: 1px solid var(--hairline);
+  padding: 12px 22px 10px;
+  border-bottom: 1px solid var(--hairline-strong);
+  background: linear-gradient(180deg, rgba(249, 245, 235, 0.7) 0%, rgba(255, 253, 248, 0.4) 100%);
   flex-wrap: wrap;
 }
 
 .ink-tabs {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
 .ink-tab {
   position: relative;
-  padding: 8px 11px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
   font-size: 13.5px;
-  color: var(--ink-3);
+  color: var(--ink-2);
   white-space: nowrap;
   flex-shrink: 0;
-  transition: color 0.14s;
+  transition: all 0.15s var(--ease);
 }
-.ink-tab:hover { color: var(--ink); }
-.ink-tab.active { color: var(--pine); font-weight: 600; }
-.ink-tab.active::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -1px;
-  height: 2px;
-  background: var(--pine);
+.ink-tab:hover { color: var(--ink); background: rgba(239, 232, 216, 0.5); }
+.ink-tab.active {
+  color: var(--pine);
+  font-weight: 600;
+  background: var(--pine-wash);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
 }
 
-.underline-search {
+.tab-pill {
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(22, 31, 26, 0.06);
+  color: var(--ink-2);
+}
+.ink-tab.active .tab-pill {
+  background: var(--pine);
+  color: #faf7f0;
+}
+.tab-pill.pill-ochre {
+  background: var(--ochre-wash);
+  color: var(--ochre);
+  border: 1px solid var(--ochre-border);
+}
+
+.search-capsule {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-bottom: 1px solid var(--hairline-strong);
-  padding: 4px 2px;
-  margin-bottom: 8px;
-  width: min(220px, 100%);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: var(--paper-card);
+  padding: 5px 12px;
+  width: min(240px, 100%);
+  box-shadow: 0 1px 2px rgba(22, 31, 26, 0.03) inset;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.underline-search:focus-within { border-color: var(--pine); }
-.search-glyph { font-size: 15px; line-height: 1; }
+.search-capsule:focus-within {
+  border-color: var(--pine);
+  box-shadow: 0 0 0 3px rgba(27, 73, 56, 0.1);
+}
+.search-glyph { font-size: 14px; line-height: 1; }
 .bare-input { border: 0; background: transparent; outline: none; font-size: 13px; width: 100%; min-width: 0; }
 .clear-x { font-size: 15px; color: var(--ink-3); padding: 0 3px; }
 .clear-x:hover { color: var(--ink); }
@@ -1000,7 +1145,7 @@ function describeRun(run) {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 22px;
-  background: var(--pine-wash);
+  background: linear-gradient(90deg, var(--pine-wash) 0%, rgba(228, 239, 232, 0.65) 100%);
   border-bottom: 1px solid var(--pine-border);
   font-size: 13px;
   flex-wrap: wrap;
@@ -1046,19 +1191,19 @@ function describeRun(run) {
   flex-wrap: wrap;
   padding: 8px 22px;
   font-size: 12.5px;
-  background: rgba(242, 237, 225, 0.45);
+  background: rgba(239, 232, 216, 0.42);
   border-bottom: 1px solid var(--hairline);
 }
 
 .select-all-link {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 12px;
   color: var(--ink-2);
-  padding-right: 8px;
+  padding-right: 10px;
   margin-right: 4px;
-  border-right: 1px solid var(--hairline);
+  border-right: 1px solid var(--hairline-strong);
 }
 .select-all-link:hover { color: var(--pine); }
 
@@ -1094,7 +1239,7 @@ function describeRun(run) {
 .colophon-history {
   padding: 8px 22px 10px;
   border-bottom: 1px solid var(--hairline);
-  background: rgba(242, 237, 225, 0.25);
+  background: rgba(239, 232, 216, 0.25);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -1106,56 +1251,80 @@ function describeRun(run) {
 .entries { display: flex; flex-direction: column; }
 
 .entry-block {
+  position: relative;
   border-bottom: 1px solid var(--hairline);
-  transition: background 0.14s;
+  transition: background 0.16s var(--ease);
 }
 .entry-block:last-child { border-bottom: 0; }
-.entry-block.is-overdue { background: rgba(181, 54, 36, 0.028); }
-.entry-block.is-selected { background: rgba(31, 79, 61, 0.055); }
-.entry-block.is-expanded { background: rgba(242, 237, 225, 0.52); }
+
+/* 左侧优先级色签细条 */
+.entry-block::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background 0.16s;
+}
+.entry-block.state-overdue::before { background: var(--seal); }
+.entry-block.state-today::before { background: var(--ochre); }
+.entry-block.state-soon::before { background: var(--pine); }
+.entry-block:hover::before { background: var(--pine-border); }
+.entry-block.state-overdue:hover::before { background: var(--seal); }
+
+.entry-block.is-overdue { background: rgba(184, 51, 34, 0.026); }
+.entry-block.is-selected { background: rgba(27, 73, 56, 0.06); }
+.entry-block.is-expanded { background: rgba(239, 232, 216, 0.55); }
 
 .entry-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 14px 22px;
+  gap: 16px;
+  padding: 15px 22px;
 }
-.entry-row:hover { background: rgba(242, 237, 225, 0.35); }
+.entry-row:hover { background: rgba(239, 232, 216, 0.36); }
 
 .entry-left {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 13px;
   min-width: 0;
   flex: 1;
 }
 
-/* 唯一圆圈：选中态高亮 */
+/* 唯一圆圈：双环墨韵多选框 */
 .select-circle {
   margin-top: 2px;
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
   border-radius: 50%;
   border: 1.5px solid var(--hairline-strong);
   background: var(--paper-card);
+  box-shadow: 0 1px 2px rgba(22, 31, 26, 0.05);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
+  font-weight: 700;
   color: #fff;
   flex-shrink: 0;
-  transition: border-color 0.14s, background 0.14s, transform 0.12s;
+  transition: all 0.15s var(--ease);
 }
 .select-circle:hover {
   border-color: var(--pine);
   background: var(--pine-wash);
   color: var(--pine);
+  box-shadow: 0 0 0 3px rgba(27, 73, 56, 0.1);
 }
 .select-circle.checked {
   background: var(--pine);
   border-color: var(--pine);
   color: #faf7f0;
+  box-shadow: 0 2px 5px rgba(27, 73, 56, 0.25);
 }
 
 .entry-body {
@@ -1163,7 +1332,7 @@ function describeRun(run) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
 }
 
@@ -1175,20 +1344,21 @@ function describeRun(run) {
 }
 
 .entry-title {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 15.5px;
+  font-weight: 600;
   color: var(--ink);
   line-height: 1.45;
+  letter-spacing: 0.01em;
 }
 .entry-body:hover .entry-title { color: var(--pine); }
-.is-done .entry-title { color: var(--ink-3); text-decoration: line-through; }
+.is-done .entry-title { color: var(--ink-3); text-decoration: line-through; font-weight: 400; }
 
 .seal-stamp {
   font-family: var(--font-display);
   font-size: 11.5px;
   font-weight: 700;
   padding: 1px 6px;
-  border-radius: 2px;
+  border-radius: 3px;
   border: 1px solid var(--seal);
   color: var(--seal);
   background: var(--seal-wash);
@@ -1200,7 +1370,7 @@ function describeRun(run) {
   font-size: 11.5px;
   font-weight: 700;
   padding: 1px 6px;
-  border-radius: 2px;
+  border-radius: 3px;
   border: 1px solid var(--ochre);
   color: var(--ochre);
   background: var(--ochre-wash);
@@ -1209,9 +1379,9 @@ function describeRun(run) {
 
 .tag-pill {
   font-size: 11.5px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--hairline-strong);
   background: var(--paper-soft);
   color: var(--ink-2);
   white-space: nowrap;
@@ -1222,16 +1392,30 @@ function describeRun(run) {
 .entry-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   font-size: 12.5px;
   color: var(--ink-2);
   flex-wrap: wrap;
 }
 
-.source-chip { display: inline-flex; align-items: center; gap: 5px; }
-.plat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.dot-wx { background: var(--wx); }
-.dot-qq { background: var(--qq); }
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plat-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  line-height: 1.3;
+}
+.plat-wx { background: var(--wx-wash); color: var(--wx); border: 1px solid var(--wx-border); }
+.plat-qq { background: var(--qq-wash); color: var(--qq); border: 1px solid var(--qq-border); }
+.plat-manual { background: var(--paper-soft); color: var(--ink-2); border: 1px solid var(--hairline-strong); }
+
+.source-name { font-weight: 500; color: var(--ink-2); }
 
 .entry-desc {
   overflow: hidden;
@@ -1247,14 +1431,23 @@ function describeRun(run) {
   flex-shrink: 0;
 }
 
-.due-block {
+/* 日历签样式截止时间牌 */
+.due-ticket {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 1px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+  background: rgba(246, 241, 229, 0.55);
   text-align: right;
   cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
 }
+.due-ticket:hover { border-color: var(--hairline-strong); background: var(--paper-soft); }
+.due-ticket.ticket-overdue { border-color: var(--seal-border); background: rgba(251, 234, 230, 0.55); }
+.due-ticket.ticket-today { border-color: var(--ochre-border); background: rgba(250, 240, 218, 0.55); }
 
 .due-main {
   font-size: 13px;
@@ -1268,25 +1461,27 @@ function describeRun(run) {
 .due-overdue { color: var(--seal); }
 .due-today { color: var(--ochre); }
 .due-soon { color: var(--pine); }
-.due-unknown { color: var(--ink-3); font-weight: 400; }
+.due-unknown { color: var(--ink-2); font-weight: 500; }
 .due-sub { font-size: 11px; white-space: nowrap; }
 
 .row-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .row-btn {
-  padding: 4px 9px;
-  border-radius: 4px;
+  padding: 5px 10px;
+  border-radius: 6px;
   font-size: 12px;
+  font-weight: 500;
   border: 1px solid var(--hairline-strong);
-  background: var(--paper-card);
+  background: linear-gradient(180deg, #fffefb 0%, #f5efe2 100%);
   color: var(--ink-2);
   white-space: nowrap;
-  transition: background 0.14s, color 0.14s, border-color 0.14s;
+  box-shadow: 0 1px 2px rgba(22, 31, 26, 0.03), 0 1px 0 #fff inset;
+  transition: all 0.14s var(--ease);
 }
 .row-btn:hover:not(:disabled) {
   background: var(--paper-soft);
@@ -1306,25 +1501,27 @@ function describeRun(run) {
   background: var(--pine);
   border-color: var(--pine);
   color: #faf7f0;
+  box-shadow: none;
 }
 
-/* 原地内联展开详情抽屉 */
+/* 原地内联展开批注笺 */
 .inline-drawer {
-  padding: 14px 22px 16px 54px;
+  padding: 16px 22px 18px 54px;
   border-top: 1px dashed var(--hairline-strong);
-  background: rgba(255, 253, 248, 0.75);
+  background:
+    linear-gradient(180deg, rgba(246, 241, 229, 0.72) 0%, rgba(255, 253, 248, 0.9) 100%);
 }
 
 .drawer-grid {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
-  gap: 18px;
+  gap: 20px;
 }
 
 .drawer-col {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -1336,9 +1533,30 @@ function describeRun(run) {
   flex-wrap: wrap;
 }
 
+.drawer-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.drawer-seal {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--seal);
+  color: #fdf8f2;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.drawer-seal.seal-pine { background: var(--pine); }
+
 .drawer-col-title {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink);
 }
@@ -1349,28 +1567,52 @@ function describeRun(run) {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 220px;
+  max-height: 230px;
   overflow-y: auto;
 }
 
 .inline-source-card {
-  padding: 9px 11px;
+  padding: 10px 13px;
   border-radius: var(--radius-sm);
-  background: var(--paper);
-  border: 1px solid var(--hairline);
+  background: var(--paper-card);
+  border: 1px solid var(--hairline-strong);
+  border-left: 3px solid var(--pine);
+  box-shadow: var(--shadow-sm);
 }
 
 .inline-source-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 8px;
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.sender-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sender-monogram {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--pine-wash);
+  border: 1px solid var(--pine-border);
+  color: var(--pine);
+  font-family: var(--font-display);
   font-size: 11.5px;
-  margin-bottom: 3px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .inline-source-text {
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -1381,7 +1623,7 @@ function describeRun(run) {
   color: var(--ochre);
   background: var(--ochre-wash);
   border: 1px solid var(--ochre-border);
-  padding: 6px 9px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
 }
 .q-label { font-weight: 600; }
@@ -1409,7 +1651,7 @@ function describeRun(run) {
 
 /* 宣纸留白空态 */
 .zen-empty {
-  padding: 58px 24px 64px;
+  padding: 60px 24px 66px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1424,17 +1666,17 @@ function describeRun(run) {
   letter-spacing: 0.25em;
   line-height: 1;
   padding: 10px 7px;
-  border: 1.5px solid rgba(181, 54, 36, 0.58);
+  border: 1.5px solid rgba(184, 51, 34, 0.58);
   border-radius: 3px;
   color: var(--seal);
-  background: rgba(250, 236, 232, 0.4);
+  background: rgba(251, 234, 230, 0.45);
   margin-bottom: 4px;
 }
 
 .zen-title {
   font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--ink);
 }
@@ -1460,7 +1702,7 @@ function describeRun(run) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 2px 4px;
+  padding: 4px 4px;
 }
 
 .stale-notice-bar {
@@ -1468,15 +1710,33 @@ function describeRun(run) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 14px;
+  padding: 9px 15px;
   border-radius: var(--radius-sm);
   border: 1px dashed var(--hairline-strong);
-  background: rgba(255, 253, 248, 0.65);
+  background: rgba(255, 253, 248, 0.78);
   font-size: 12.5px;
   color: var(--ink-2);
   flex-wrap: wrap;
 }
-.stale-actions { display: flex; gap: 12px; }
+
+.stale-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stale-seal {
+  font-family: var(--font-display);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--paper-soft);
+  color: var(--ink-2);
+}
+
+.stale-actions { display: flex; gap: 14px; }
 
 .other-wrap { display: flex; flex-direction: column; gap: 8px; }
 .other-trigger {
@@ -1490,21 +1750,35 @@ function describeRun(run) {
 .other-trigger:hover { color: var(--pine); }
 .other-box { overflow: hidden; }
 
+.motto-lockup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding-top: 6px;
+}
+
+.motto-rule {
+  width: 48px;
+  height: 1px;
+  background: var(--hairline-strong);
+}
+
 .motto-line {
   text-align: center;
   font-family: var(--font-display);
-  font-size: 13px;
-  letter-spacing: 0.22em;
+  font-size: 13.5px;
+  letter-spacing: 0.24em;
   color: var(--ink-3);
-  opacity: 0.72;
-  padding-top: 4px;
+  opacity: 0.85;
 }
 
 @media (max-width: 820px) {
-  .planner-title { font-size: 26px; }
+  .hero-plaque { padding: 16px; }
+  .planner-title { font-size: 28px; }
   .planner-sheet { padding-left: 8px; }
-  .sheet-toolbar { padding: 10px 14px 0; }
-  .underline-search { width: 100%; }
+  .sheet-toolbar { padding: 10px 14px; }
+  .search-capsule { width: 100%; }
   .colophon-bar, .selection-bar, .undo-bar { padding: 8px 14px; }
   .entry-row {
     flex-direction: column;
@@ -1514,10 +1788,10 @@ function describeRun(run) {
   }
   .entry-right {
     justify-content: space-between;
-    padding-left: 32px;
+    padding-left: 34px;
     flex-wrap: wrap;
   }
-  .due-block { align-items: flex-start; text-align: left; }
+  .due-ticket { align-items: flex-start; text-align: left; }
   .inline-drawer { padding: 12px 14px; }
   .drawer-grid { grid-template-columns: 1fr; }
   .inline-edit-row { grid-template-columns: 1fr; }

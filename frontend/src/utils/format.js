@@ -49,6 +49,32 @@ export function lunarHeading() {
   }
 }
 
+export function shichenHeading() {
+  try {
+    const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', hourCycle: 'h23' }).format(new Date()));
+    if (h >= 23 || h < 1) return { seal: '子时', phrase: '夜阑灯火 · 案头清卷' };
+    if (h < 5) return { seal: '寅丑', phrase: '星河未落 · 静思笃行' };
+    if (h < 9) return { seal: '辰卯', phrase: '晨露初曦 · 展卷迎新' };
+    if (h < 13) return { seal: '午巳', phrase: '日晷正明 · 笃志于学' };
+    if (h < 17) return { seal: '申未', phrase: '清风入座 · 事有条理' };
+    if (h < 20) return { seal: '酉戌', phrase: '暮色归案 · 拾遗补阙' };
+    return { seal: '亥时', phrase: '灯下翻阅 · 明日有备' };
+  } catch {
+    return { seal: '案头', phrase: '消息有出处 · 事情有着落' };
+  }
+}
+
+export function monogramChar(title = '') {
+  const str = String(title || '').trim();
+  const cjk = str.match(/[\u4e00-\u9fa5]/g);
+  if (cjk && cjk.length) {
+    const skip = new Set(['级', '届', '群', '年', '班']);
+    const picked = cjk.find(ch => !skip.has(ch)) || cjk[0];
+    return picked;
+  }
+  return (str[0] || '群').toUpperCase();
+}
+
 export function formatTime(iso, withYear = false) {
   if (!iso) return '';
   const date = new Date(iso);

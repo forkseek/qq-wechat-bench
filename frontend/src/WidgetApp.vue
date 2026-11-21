@@ -338,11 +338,23 @@ onUnmounted(() => {
   flex-direction: column;
   background-color: var(--paper-card);
   background-image:
-    radial-gradient(ellipse 80% 45% at 95% 5%, var(--celadon-wash), transparent 70%);
-  border-top: 2.5px solid var(--pine);
+    radial-gradient(ellipse 85% 48% at 95% 4%, var(--celadon-wash), transparent 70%),
+    radial-gradient(ellipse 65% 42% at 6% 96%, var(--mist-wash), transparent 72%);
+  border-top: 3px solid var(--pine);
   color: var(--ink);
   overflow: hidden;
   position: relative;
+}
+
+.slip-shell::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 3px;
+  background: var(--seal);
 }
 
 .slip-head {
@@ -521,15 +533,18 @@ onUnmounted(() => {
 }
 
 .slip-item {
+  position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px 2px;
+  gap: 9px;
+  padding: 11px 4px;
   border-bottom: 1px solid var(--hairline);
+  transition: background 0.14s;
 }
+.slip-item:hover { background: rgba(239, 232, 216, 0.36); margin: 0 -12px; padding: 11px 16px; }
 .slip-item:last-child { border-bottom: 0; }
-.slip-item.overdue { background: rgba(181, 54, 36, 0.035); margin: 0 -12px; padding: 10px 14px; }
-.slip-item.selected { background: rgba(31, 92, 73, 0.06); margin: 0 -12px; padding: 10px 14px; }
+.slip-item.overdue { background: rgba(184, 51, 34, 0.038); margin: 0 -12px; padding: 11px 16px; border-left: 3px solid var(--seal); }
+.slip-item.selected { background: rgba(27, 73, 56, 0.065); margin: 0 -12px; padding: 11px 16px; border-left: 3px solid var(--pine); }
 
 .slip-check {
   width: 17px;

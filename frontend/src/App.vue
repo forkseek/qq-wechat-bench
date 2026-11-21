@@ -53,6 +53,10 @@ const pendingCount = computed(() =>
   (state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other' && !isStaleHistoricalTask(t)).length
 );
 
+const monitoredCount = computed(() =>
+  (state.value?.conversations || []).filter(c => c.monitored).length
+);
+
 const qqBanner = computed(() => {
   const qq = state.value?.qq;
   if (!qq || qq.online) return null;
@@ -128,30 +132,40 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 
 <template>
   <div class="desk-shell">
-    <!-- 顶部书眉雅栏（去除了厚重侧边栏，全宣纸通透视野） -->
+    <!-- 顶部宋韵书眉雅栏 -->
     <header class="masthead">
       <div class="masthead-inner">
         <div class="mast-left">
           <a class="brand" href="/" @click.prevent="navigate('tasks')">
-            <span class="seal-mark" aria-hidden="true">讯</span>
-            <span class="brand-word">讯课</span>
+            <span class="seal-mark" aria-hidden="true">
+              <span class="seal-char">讯</span>
+            </span>
+            <div class="brand-lockup">
+              <span class="brand-word">讯课</span>
+              <span class="brand-sub">书案 · 智录</span>
+            </div>
           </a>
 
           <span class="mast-divider" aria-hidden="true"></span>
 
           <nav class="chapter-nav" aria-label="主导航">
             <button class="chapter-tab" :class="{ active: view === 'tasks' }" @click="navigate('tasks')">
-              <span>待办</span>
+              <span class="chapter-num" aria-hidden="true">壹</span>
+              <span>案头待办</span>
               <span v-if="pendingCount > 0" class="tab-badge num">{{ pendingCount }}</span>
             </button>
             <button class="chapter-tab" :class="{ active: view === 'messages' }" @click="navigate('messages')">
-              <span>消息</span>
+              <span class="chapter-num" aria-hidden="true">贰</span>
+              <span>群聊消息</span>
             </button>
             <button class="chapter-tab" :class="{ active: view === 'conversations' }" @click="navigate('conversations')">
-              <span>会话</span>
+              <span class="chapter-num" aria-hidden="true">叁</span>
+              <span>关注群组</span>
+              <span v-if="monitoredCount > 0" class="tab-count num">{{ monitoredCount }}</span>
             </button>
             <button class="chapter-tab" :class="{ active: view === 'settings' }" @click="navigate('settings', 'connections')">
-              <span>设置</span>
+              <span class="chapter-num" aria-hidden="true">肆</span>
+              <span>设置维护</span>
             </button>
           </nav>
         </div>
@@ -164,11 +178,15 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
             @navigate="v => navigate(v, 'connections')"
             @toggle-assistant="assistantOpen = !assistantOpen"
           />
-          <button v-if="inDesktop" class="icon-action" @click="openMiniWidget" title="显示 / 隐藏迷你待办小窗">
+          <button v-if="inDesktop" class="icon-action" @click="openMiniWidget" title="显示 / 隐藏桌面置顶便签小窗">
             ◳
           </button>
-          <button class="profile-seal" @click="profileModalOpen = true" :title="state?.profile?.name ? `我的信息与规则（${state.profile.name}）` : '我的信息与规则'">
-            我
+          <button
+            class="profile-seal"
+            @click="profileModalOpen = true"
+            :title="state?.profile?.name ? `我的身份与专属规则（${state.profile.name}）` : '设置我的身份与专属规则'"
+          >
+            <span>{{ state?.profile?.name ? state.profile.name.slice(-1) : '我' }}</span>
           </button>
         </div>
       </div>
@@ -293,22 +311,34 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   overflow-x: clip;
 }
 
-/* 顶部书眉雅栏：通透素宣 + 顶部一缕极细朱砂边线 */
+/* 顶部宋韵书眉雅栏：双色眉线 + 磨砂素宣 */
 .masthead {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(249, 246, 238, 0.88);
-  backdrop-filter: blur(12px);
-  border-top: 2px solid var(--pine);
-  border-bottom: 1px solid var(--hairline);
+  background: rgba(246, 241, 229, 0.86);
+  backdrop-filter: blur(14px);
+  border-top: 3px solid var(--pine);
+  border-bottom: 1px solid var(--hairline-strong);
+  box-shadow: 0 4px 20px -10px rgba(22, 35, 28, 0.1);
+}
+
+.masthead::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140px;
+  height: 3px;
+  background: var(--seal);
 }
 
 .masthead-inner {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 0 28px;
-  min-height: 54px;
+  padding: 6px 28px;
+  min-height: 58px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -326,48 +356,80 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   color: var(--ink);
   text-decoration: none;
   flex-shrink: 0;
 }
 .brand:hover { text-decoration: none; }
 
+/* 篆刻朱文方印 */
 .seal-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  border: 1.5px solid var(--seal);
-  background: var(--seal);
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  padding: 2px;
+  background: linear-gradient(145deg, #c93b29 0%, #9f2718 100%);
+  box-shadow: 0 2px 6px rgba(184, 51, 34, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.seal-char {
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 245, 238, 0.55);
+  border-radius: 3px;
   color: #fdf8f2;
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 0 1.5px rgba(255, 245, 240, 0.25);
+  line-height: 1;
+}
+
+.brand-lockup {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .brand-word {
   font-family: var(--font-display);
   font-size: 21px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.14em;
+  line-height: 1.05;
   color: var(--ink);
+}
+
+.brand-sub {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+  line-height: 1.1;
 }
 
 .mast-divider {
   width: 1px;
-  height: 18px;
+  height: 22px;
   background: var(--hairline-strong);
   flex-shrink: 0;
 }
 
+/* 胶囊书签导航轨 */
 .chapter-nav {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(235, 227, 210, 0.65);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: 0 1px 2px rgba(22, 31, 26, 0.04) inset;
 }
 
 .chapter-tab {
@@ -375,30 +437,37 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 15px 13px;
-  font-size: 14px;
+  padding: 6px 13px;
+  border-radius: 7px;
+  font-size: 13.5px;
   color: var(--ink-2);
   white-space: nowrap;
   flex-shrink: 0;
-  transition: color 0.15s;
+  transition: all 0.16s var(--ease);
 }
 
-.chapter-tab:hover { color: var(--ink); }
+.chapter-tab:hover {
+  color: var(--ink);
+  background: rgba(255, 253, 248, 0.45);
+}
+
+.chapter-num {
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  opacity: 0.8;
+}
 
 .chapter-tab.active {
+  background: var(--paper-card);
   color: var(--pine);
   font-weight: 600;
+  box-shadow: 0 2px 6px rgba(22, 35, 28, 0.08), 0 1px 0 #fff inset;
 }
 
-.chapter-tab.active::after {
-  content: "";
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 0;
-  height: 2px;
-  background: var(--seal);
-  border-radius: 2px 2px 0 0;
+.chapter-tab.active .chapter-num {
+  color: var(--seal);
+  opacity: 1;
 }
 
 .tab-badge {
@@ -408,6 +477,17 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   border-radius: 999px;
   background: var(--seal);
   color: #fff;
+  font-weight: 600;
+}
+
+.tab-count {
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--pine-wash);
+  color: var(--pine);
+  font-weight: 600;
 }
 
 .mast-right {
@@ -418,35 +498,37 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 }
 
 .icon-action {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid var(--hairline);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline-strong);
   background: var(--paper-card);
   color: var(--ink-2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  transition: border-color 0.15s, color 0.15s;
+  font-size: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.15s;
 }
-.icon-action:hover { border-color: var(--pine-border); color: var(--pine); }
+.icon-action:hover { border-color: var(--pine-border); color: var(--pine); background: var(--pine-wash); }
 
 .profile-seal {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   border: 1px solid var(--hairline-strong);
-  background: var(--paper-card);
+  background: linear-gradient(180deg, #fffefb 0%, #f4ede0 100%);
   color: var(--pine);
   font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.15s;
 }
 .profile-seal:hover {
   background: var(--pine);
@@ -458,10 +540,10 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 .desk-main {
   flex: 1;
   width: 100%;
-  max-width: 960px;
+  max-width: 1000px;
   min-width: 0;
   margin: 0 auto;
-  padding: 26px 28px 44px;
+  padding: 24px 28px 48px;
 }
 
 .desk-main.desk-wide {
@@ -469,16 +551,15 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   padding: 18px 28px 24px;
 }
 
-/* 轻量低噪提示条（替代刺眼的整块大黄横幅） */
 .quiet-notice {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 12px;
+  padding: 8px 14px;
   margin-bottom: 18px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--hairline);
-  background: rgba(255, 253, 248, 0.72);
+  border: 1px solid var(--hairline-strong);
+  background: rgba(255, 253, 248, 0.82);
   font-size: 12.5px;
   color: var(--ink-2);
   flex-wrap: wrap;
@@ -494,20 +575,21 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 
 .notice-text { flex: 1; min-width: 180px; }
 
-@media (max-width: 780px) {
+@media (max-width: 820px) {
   .masthead-inner {
     padding: 8px 14px;
     gap: 8px;
   }
-  .mast-divider { display: none; }
+  .mast-divider, .brand-sub { display: none; }
   .mast-left {
     width: 100%;
     justify-content: space-between;
   }
   .chapter-tab {
-    padding: 8px 10px;
-    font-size: 13.5px;
+    padding: 5px 9px;
+    font-size: 13px;
   }
+  .chapter-num { display: none; }
   .mast-right {
     width: 100%;
     justify-content: space-between;

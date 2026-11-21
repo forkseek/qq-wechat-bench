@@ -360,14 +360,17 @@ const wxStatusBadge = computed(() => {
 .conn-stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .setting-card {
-  padding: 16px 18px;
+  position: relative;
+  padding: 18px 22px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 13px;
+  border-top: 3px solid var(--pine);
+  box-shadow: var(--shadow-float);
 }
 
 .setting-head {

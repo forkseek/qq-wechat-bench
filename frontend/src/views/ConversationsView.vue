@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { api } from '../api.js';
-import { formatTime, analysisStateLabel } from '../utils/format.js';
+import { formatTime, analysisStateLabel, monogramChar } from '../utils/format.js';
 
 const props = defineProps({
   state: { type: Object, required: true }
@@ -141,24 +141,36 @@ async function addQuickQQ(groupId, name) {
     </div>
 
     <div v-if="monitored.length" class="monitored-grid">
-      <article v-for="c in monitored" :key="c.id" class="card conv-card">
+      <article
+        v-for="c in monitored"
+        :key="c.id"
+        class="card conv-card"
+        :class="c.platform === 'wechat' ? 'conv-wx' : 'conv-qq'"
+      >
         <div class="conv-card-head">
           <div class="conv-card-title-wrap">
-            <span class="badge" :class="c.platform === 'wechat' ? 'badge-wx' : 'badge-qq'">
-              {{ c.platform === 'wechat' ? '微信' : 'QQ' }}
+            <span class="conv-monogram" :class="c.platform === 'wechat' ? 'mono-wx' : 'mono-qq'">
+              {{ monogramChar(c.title) }}
             </span>
-            <h3 class="conv-card-title">{{ c.title }}</h3>
+            <div class="conv-title-col">
+              <div class="conv-title-line">
+                <h3 class="conv-card-title">{{ c.title }}</h3>
+                <span class="badge" :class="c.platform === 'wechat' ? 'badge-wx' : 'badge-qq'">
+                  {{ c.platform === 'wechat' ? '微信' : 'QQ' }}
+                </span>
+              </div>
+              <div class="conv-card-meta muted">
+                <span>已保存 <strong class="num">{{ c.messageCount || 0 }}</strong> 条</span>
+                <span v-if="c.lastSeen">· 最近 {{ formatTime(c.lastSeen) }}</span>
+                <span v-if="c.rules" class="rule-flag">· 专属规则</span>
+              </div>
+            </div>
           </div>
           <span class="badge badge-pine">{{ analysisStateLabel(c.analysisState) }}</span>
         </div>
 
-        <div class="conv-card-meta muted">
-          <span>已保存 <strong class="num">{{ c.messageCount || 0 }}</strong> 条</span>
-          <span v-if="c.lastSeen">· 最近 {{ formatTime(c.lastSeen) }}</span>
-          <span v-if="c.rules" class="rule-flag">· 已设专属规则</span>
-        </div>
-
         <div v-if="c.summary" class="conv-card-summary">
+          <span class="summary-seal" aria-hidden="true">要</span>
           <p class="summary-clamp">{{ c.summary }}</p>
         </div>
 
@@ -280,11 +292,17 @@ async function addQuickQQ(groupId, name) {
 }
 
 .conv-card {
-  padding: 14px 16px;
+  position: relative;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  border-top: 3px solid var(--pine);
+  box-shadow: var(--shadow-float);
 }
+.conv-card.conv-wx { border-top-color: var(--wx); }
+.conv-card.conv-qq { border-top-color: var(--qq); }
+.conv-card:hover { border-color: var(--hairline-strong); }
 
 .conv-card-head {
   display: flex;
@@ -295,14 +313,45 @@ async function addQuickQQ(groupId, name) {
 
 .conv-card-title-wrap {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 11px;
   min-width: 0;
   flex: 1;
 }
 
+.conv-monogram {
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(22, 31, 26, 0.06);
+}
+.mono-wx { background: var(--wx-wash); color: var(--wx); border: 1px solid var(--wx-border); }
+.mono-qq { background: var(--qq-wash); color: var(--qq); border: 1px solid var(--qq-border); }
+
+.conv-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.conv-title-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
 .conv-card-title {
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -313,19 +362,37 @@ async function addQuickQQ(groupId, name) {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
-.rule-flag { color: var(--pine); }
+.rule-flag { color: var(--pine); font-weight: 500; }
 
 .conv-card-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 12.5px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--ink-2);
-  background: var(--paper);
-  padding: 8px 10px;
+  background: rgba(246, 241, 229, 0.65);
+  padding: 9px 11px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--hairline);
+}
+
+.summary-seal {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--pine);
+  color: #faf7f0;
+  font-family: var(--font-display);
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .summary-clamp {
