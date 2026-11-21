@@ -369,8 +369,8 @@ const wxStatusBadge = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 13px;
-  border-top: 3px solid var(--pine);
-  box-shadow: var(--shadow-float);
+  border-top: 2px solid var(--pine-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .setting-head {

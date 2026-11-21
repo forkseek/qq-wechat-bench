@@ -297,12 +297,18 @@ async function addQuickQQ(groupId, name) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-top: 3px solid var(--pine);
-  box-shadow: var(--shadow-float);
+  border-top: 2px solid var(--pine);
+  box-shadow: var(--shadow-sm);
 }
 .conv-card.conv-wx { border-top-color: var(--wx); }
 .conv-card.conv-qq { border-top-color: var(--qq); }
-.conv-card:hover { border-color: var(--hairline-strong); }
+.conv-card:hover {
+  border-color: var(--hairline-strong);
+  border-top-color: var(--pine);
+  box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.conv-card.conv-wx:hover { border-top-color: var(--wx); }
+.conv-card.conv-qq:hover { border-top-color: var(--qq); }
 
 .conv-card-head {
   display: flex;
@@ -314,23 +320,21 @@ async function addQuickQQ(groupId, name) {
 .conv-card-title-wrap {
   display: flex;
   align-items: flex-start;
-  gap: 11px;
+  gap: 12px;
   min-width: 0;
   flex: 1;
 }
 
 .conv-monogram {
-  width: 36px;
-  height: 36px;
-  border-radius: 7px;
-  font-family: var(--font-display);
-  font-size: 18px;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  font-size: 16px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(22, 31, 26, 0.06);
 }
 .mono-wx { background: var(--wx-wash); color: var(--wx); border: 1px solid var(--wx-border); }
 .mono-qq { background: var(--qq-wash); color: var(--qq); border: 1px solid var(--qq-border); }
@@ -351,8 +355,9 @@ async function addQuickQQ(groupId, name) {
 }
 
 .conv-card-title {
-  font-size: 15.5px;
+  font-size: 15px;
   font-weight: 600;
+  color: #f8fafc;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -365,7 +370,7 @@ async function addQuickQQ(groupId, name) {
   font-size: 12px;
 }
 
-.rule-flag { color: var(--pine); font-weight: 500; }
+.rule-flag { color: #a5b4fc; font-weight: 500; }
 
 .conv-card-summary {
   display: flex;
@@ -373,26 +378,27 @@ async function addQuickQQ(groupId, name) {
   gap: 8px;
   font-size: 12.5px;
   line-height: 1.6;
-  color: var(--ink-2);
-  background: rgba(246, 241, 229, 0.65);
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.28);
   padding: 9px 11px;
-  border-radius: var(--radius-sm);
+  border-radius: 9px;
   border: 1px solid var(--hairline);
 }
 
 .summary-seal {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  background: var(--pine);
-  color: #faf7f0;
-  font-family: var(--font-display);
+  width: 19px;
+  height: 19px;
+  border-radius: 5px;
+  background: var(--pine-wash);
+  border: 1px solid var(--pine-border);
+  color: #a5b4fc;
   font-size: 11px;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .summary-clamp {

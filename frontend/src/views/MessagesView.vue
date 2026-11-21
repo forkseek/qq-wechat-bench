@@ -466,12 +466,12 @@ function outboxStatusLabel(item) {
 }
 
 .conv-pane-top {
-  padding: 10px;
+  padding: 12px;
   border-bottom: 1px solid var(--hairline);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--paper);
+  background: rgba(0, 0, 0, 0.24);
 }
 
 .conv-tabs {
@@ -497,10 +497,10 @@ function outboxStatusLabel(item) {
   gap: 4px;
   transition: background 0.14s;
 }
-.conv-item:hover { background: var(--paper); }
+.conv-item:hover { background: rgba(255, 255, 255, 0.05); }
 .conv-item.active {
-  background: var(--pine-wash);
-  border-left: 3px solid var(--pine);
+  background: rgba(99, 102, 241, 0.16);
+  border-left: 3px solid #818cf8;
   padding-left: 9px;
 }
 
@@ -574,14 +574,14 @@ function outboxStatusLabel(item) {
 }
 
 .thread-head {
-  padding: 12px 16px;
+  padding: 13px 18px;
   border-bottom: 1px solid var(--hairline);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  background: var(--paper);
+  background: rgba(0, 0, 0, 0.24);
 }
 
 .thread-title-group {
@@ -638,11 +638,11 @@ function outboxStatusLabel(item) {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 14px 16px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: var(--paper);
+  gap: 12px;
+  background: rgba(5, 8, 14, 0.45);
   min-width: 0;
 }
 
@@ -659,16 +659,17 @@ function outboxStatusLabel(item) {
 .msg-bubble {
   max-width: min(620px, 88%);
   min-width: 0;
-  padding: 10px 13px;
-  border-radius: var(--radius);
-  background: var(--paper-card);
+  padding: 11px 14px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.055);
   border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   overflow-wrap: anywhere;
 }
 
 .msg-self .msg-bubble {
-  background: var(--pine-wash);
-  border-color: var(--pine-border);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28) 0%, rgba(79, 70, 229, 0.22) 100%);
+  border-color: rgba(129, 140, 248, 0.36);
 }
 
 .msg-meta {

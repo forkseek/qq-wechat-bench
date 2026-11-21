@@ -1,71 +1,76 @@
-/* 讯课 · 宋韵书房 × 现代高定编辑界面（Editorial Song-Dynasty Stationery & Ink Atelier）
-   素宣叠页质感 + 远山青黛晕染 + 乌丝栏线装书脊 + 朱文篆刻印章 */
+/* 讯课 · 暗夜琉璃 × 液态玻璃工作台（Dark Obsidian & Liquid Glass Desktop Atelier）
+   深邃曜石底色 + 极光微光漫射 + 磨砂琉璃面板 + 细腻高光描边 */
 
 :root {
-  --paper: #f6f1e5;
-  --paper-card: #fffdf8;
-  --paper-elevated: #ffffff;
-  --paper-soft: #efe8d8;
-  --paper-hover: #e7decb;
-  --hairline: #e2d8c3;
-  --hairline-strong: #cbbca0;
-  --book-frame: #d5c7ad;
+  /* 核心暗夜画布与玻璃层级 */
+  --bg: #07090e;
+  --bg-elevated: #0d111a;
+  --paper: #0c1018;
+  --paper-card: rgba(18, 23, 35, 0.74);
+  --paper-solid: #121723;
+  --paper-soft: rgba(255, 255, 255, 0.045);
+  --paper-hover: rgba(255, 255, 255, 0.08);
+  --glass-modal: rgba(15, 20, 31, 0.92);
+  --glass-sidebar: rgba(11, 15, 24, 0.78);
 
-  --ink: #161f1a;
-  --ink-2: #44524a;
-  --ink-3: #78847c;
+  /* 琉璃高光与微光描边 */
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
+  --book-frame: rgba(255, 255, 255, 0.1);
+  --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.11);
 
-  --pine: #1b4938;
-  --pine-hi: #25614b;
-  --pine-deep: #102d22;
-  --pine-wash: #e4efe8;
-  --pine-border: #b8d3c4;
+  /* 文字层级 */
+  --ink: #f1f5f9;
+  --ink-2: #94a3b8;
+  --ink-3: #64748b;
 
-  --celadon: #53746c;
-  --celadon-wash: rgba(27, 73, 56, 0.065);
-  --mist-wash: rgba(45, 93, 140, 0.048);
+  /* 主强调色：琉璃靛蓝（Electric Indigo） */
+  --pine: #818cf8;
+  --pine-hi: #6366f1;
+  --pine-deep: #4f46e5;
+  --pine-wash: rgba(99, 102, 241, 0.15);
+  --pine-border: rgba(129, 140, 248, 0.34);
 
-  --seal: #b83322;
-  --seal-hi: #962617;
-  --seal-wash: #fbeae6;
-  --seal-border: #e5b3a9;
+  /* 语义色：珊瑚红 / 琥珀金 / 翠玉绿 / 天空蓝 */
+  --seal: #fb7185;
+  --seal-hi: #f43f5e;
+  --seal-wash: rgba(244, 63, 94, 0.14);
+  --seal-border: rgba(251, 113, 133, 0.32);
 
-  --ochre: #986516;
-  --ochre-wash: #faf0da;
-  --ochre-border: #e3c896;
+  --ochre: #fbbf24;
+  --ochre-wash: rgba(245, 158, 11, 0.14);
+  --ochre-border: rgba(251, 191, 36, 0.32);
 
-  --wx: #1f7246;
-  --wx-wash: #e3f3ea;
-  --wx-border: #b8dec8;
-  --qq: #275888;
-  --qq-wash: #e4eef9;
-  --qq-border: #b8cfe8;
+  --wx: #34d399;
+  --wx-wash: rgba(16, 185, 129, 0.14);
+  --wx-border: rgba(52, 211, 153, 0.3);
 
-  --font-display: "STKaiti", "KaiTi", "Kaiti SC", "FangSong", "Songti SC", "SimSun", serif;
-  --font-serif: "Songti SC", "NSimSun", "SimSun", "STSong", Georgia, serif;
-  --font-body: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI Variable", "PingFang SC", sans-serif;
-  --font-num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", sans-serif;
+  --qq: #38bdf8;
+  --qq-wash: rgba(14, 165, 233, 0.14);
+  --qq-border: rgba(56, 189, 248, 0.3);
 
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 2px 5px rgba(22, 31, 26, 0.045), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
-  /* 叠页宣纸立体阴影：模拟三层线装书页叠放于书案之上 */
-  --shadow-sheet:
-    0 1px 0 #fffdf9 inset,
-    0 3px 0 -1px #fbf7ee,
-    0 4px 0 -1px #d6c8ae,
-    0 7px 0 -2px #f4ede0,
-    0 8px 0 -2px #cbbca1,
-    0 22px 48px -18px rgba(20, 42, 32, 0.18),
-    0 4px 12px rgba(22, 35, 28, 0.05);
-  --shadow-md: 0 16px 36px -16px rgba(16, 45, 34, 0.24);
-  --shadow-float: 0 12px 30px -10px rgba(20, 44, 34, 0.15), 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+  --celadon: #2dd4bf;
+  --celadon-wash: rgba(45, 212, 191, 0.14);
+
+  /* 现代极简无衬线字体栈 */
+  --font-display: "Segoe UI Variable Display", "PingFang SC", "Microsoft YaHei UI", "Inter", sans-serif;
+  --font-serif: "Segoe UI Variable", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+  --font-body: "Segoe UI Variable", "Microsoft YaHei UI", "PingFang SC", "Inter", sans-serif;
+  --font-num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", monospace;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-sheet: 0 24px 60px -20px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-md: 0 18px 44px -14px rgba(0, 0, 0, 0.75);
+  --shadow-glow-indigo: 0 8px 24px -6px rgba(99, 102, 241, 0.45);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--ink);
-  color-scheme: light;
+  color-scheme: dark;
 }

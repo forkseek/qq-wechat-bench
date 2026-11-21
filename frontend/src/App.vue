@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from './api.js';
 import { isStaleHistoricalTask } from './utils/format.js';
-import StatusPills from './components/StatusPills.vue';
 import AssistantDrawer from './components/AssistantDrawer.vue';
 import TaskDetailModal from './components/TaskDetailModal.vue';
 import ProfileModal from './components/ProfileModal.vue';
@@ -56,6 +55,27 @@ const pendingCount = computed(() =>
 const monitoredCount = computed(() =>
   (state.value?.conversations || []).filter(c => c.monitored).length
 );
+
+const qqLive = computed(() => {
+  const qq = state.value?.qq || {};
+  if (qq.online) return { text: qq.name || '已直连', dot: qq.degraded ? 'dot-warn' : 'dot-ok', active: true };
+  if (qq.blockedReason === 'desktop_in_use') return { text: '识别中', dot: 'dot-warn', active: false };
+  return { text: '未连接', dot: '', active: false };
+});
+
+const wxLive = computed(() => {
+  const wx = state.value?.wechat || {};
+  if (wx.online) return { text: wx.name || '已直连', dot: wx.degraded ? 'dot-warn' : 'dot-ok', active: true };
+  if (wx.phase === 'client_closed') return { text: '未打开', dot: '', active: false };
+  return { text: '等待登录', dot: 'dot-warn', active: false };
+});
+
+const aiLive = computed(() => {
+  const m = state.value?.model || {};
+  if (m.configured) return { text: m.name || '已就绪', dot: 'dot-ok', active: true };
+  if (m.error) return { text: '配置异常', dot: 'dot-err', active: false };
+  return { text: '未配置', dot: '', active: false };
+});
 
 const qqBanner = computed(() => {
   const qq = state.value?.qq;
@@ -131,129 +151,187 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 </script>
 
 <template>
-  <div class="desk-shell">
-    <!-- 顶部宋韵书眉雅栏 -->
-    <header class="masthead">
-      <div class="masthead-inner">
-        <div class="mast-left">
-          <a class="brand" href="/" @click.prevent="navigate('tasks')">
-            <span class="seal-mark" aria-hidden="true">
-              <span class="seal-char">讯</span>
-            </span>
-            <div class="brand-lockup">
-              <span class="brand-word">讯课</span>
-              <span class="brand-sub">书案 · 智录</span>
-            </div>
-          </a>
+  <div class="desktop-shell">
+    <!-- 左侧液态琉璃导航栏 -->
+    <aside class="glass-sidebar" aria-label="主导航">
+      <div class="sidebar-top">
+        <a class="brand" href="/" @click.prevent="navigate('tasks')">
+          <span class="brand-orb" aria-hidden="true">
+            <span class="brand-orb-char">讯</span>
+          </span>
+          <div class="brand-meta">
+            <span class="brand-name">讯课工作台</span>
+            <span class="brand-tag">Obsidian · Studio</span>
+          </div>
+        </a>
+      </div>
 
-          <span class="mast-divider" aria-hidden="true"></span>
+      <div class="sidebar-scroll">
+        <div class="nav-group">
+          <div class="nav-group-label">工作空间</div>
+          <nav class="nav-list">
+            <button class="nav-item" :class="{ active: view === 'tasks' }" @click="navigate('tasks')">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="3" />
+                <path d="M8 10h8M8 14h5" />
+              </svg>
+              <span class="nav-label">待办清单</span>
+              <span v-if="pendingCount > 0" class="nav-pill pill-indigo num">{{ pendingCount }}</span>
+            </button>
 
-          <nav class="chapter-nav" aria-label="主导航">
-            <button class="chapter-tab" :class="{ active: view === 'tasks' }" @click="navigate('tasks')">
-              <span class="chapter-num" aria-hidden="true">壹</span>
-              <span>案头待办</span>
-              <span v-if="pendingCount > 0" class="tab-badge num">{{ pendingCount }}</span>
+            <button class="nav-item" :class="{ active: view === 'messages' }" @click="navigate('messages')">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span class="nav-label">群聊消息</span>
             </button>
-            <button class="chapter-tab" :class="{ active: view === 'messages' }" @click="navigate('messages')">
-              <span class="chapter-num" aria-hidden="true">贰</span>
-              <span>群聊消息</span>
+
+            <button class="nav-item" :class="{ active: view === 'conversations' }" @click="navigate('conversations')">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span class="nav-label">关注群组</span>
+              <span v-if="monitoredCount > 0" class="nav-pill num">{{ monitoredCount }}</span>
             </button>
-            <button class="chapter-tab" :class="{ active: view === 'conversations' }" @click="navigate('conversations')">
-              <span class="chapter-num" aria-hidden="true">叁</span>
-              <span>关注群组</span>
-              <span v-if="monitoredCount > 0" class="tab-count num">{{ monitoredCount }}</span>
-            </button>
-            <button class="chapter-tab" :class="{ active: view === 'settings' }" @click="navigate('settings', 'connections')">
-              <span class="chapter-num" aria-hidden="true">肆</span>
-              <span>设置维护</span>
+
+            <button class="nav-item" :class="{ active: view === 'settings' }" @click="navigate('settings', 'connections')">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              <span class="nav-label">设置与维护</span>
             </button>
           </nav>
         </div>
 
-        <div class="mast-right">
-          <StatusPills
-            v-if="state"
+        <div class="nav-group">
+          <div class="nav-group-label">快捷工具</div>
+          <div class="nav-list">
+            <button
+              v-if="state?.model?.configured"
+              class="nav-item ai-nav-item"
+              :class="{ active: assistantOpen }"
+              @click="assistantOpen = !assistantOpen"
+            >
+              <span class="ai-spark" aria-hidden="true">✦</span>
+              <span class="nav-label">AI 通知助手</span>
+              <span class="nav-pill pill-cyan">对话</span>
+            </button>
+
+            <button v-if="inDesktop" class="nav-item" @click="openMiniWidget">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <rect x="11" y="11" width="7" height="7" rx="1" />
+              </svg>
+              <span class="nav-label">桌面迷你小窗</span>
+            </button>
+
+            <button class="nav-item" @click="profileModalOpen = true">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              <span class="nav-label">{{ state?.profile?.name ? `我的规则 · ${state.profile.name}` : '我的身份与规则' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部实时连接状态舱 -->
+      <div v-if="state" class="sidebar-telemetry">
+        <button class="telemetry-row" @click="navigate('settings', 'connections')" title="查看 QQ 接入状态">
+          <span class="tel-left">
+            <span class="dot" :class="qqLive.dot"></span>
+            <span class="tel-plat">QQ</span>
+          </span>
+          <span class="tel-val" :class="{ online: qqLive.active }">{{ qqLive.text }}</span>
+        </button>
+
+        <button class="telemetry-row" @click="navigate('settings', 'connections')" title="查看微信接入状态">
+          <span class="tel-left">
+            <span class="dot" :class="wxLive.dot"></span>
+            <span class="tel-plat">微信</span>
+          </span>
+          <span class="tel-val" :class="{ online: wxLive.active }">{{ wxLive.text }}</span>
+        </button>
+
+        <button class="telemetry-row" @click="navigate('settings', 'connections')" title="查看 AI 模型状态">
+          <span class="tel-left">
+            <span class="dot" :class="aiLive.dot"></span>
+            <span class="tel-plat">AI</span>
+          </span>
+          <span class="tel-val" :class="{ online: aiLive.active }">{{ aiLive.text }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- 右侧宽屏液态玻璃工作区 -->
+    <main class="workspace-main">
+      <div class="workspace-inner" :class="{ 'workspace-wide': view === 'messages' }">
+        <div v-if="loadError && !state" class="banner banner-err">
+          <span>无法连接工作台服务：{{ loadError }}</span>
+          <button class="btn btn-secondary btn-sm" @click="refresh(false)">重试</button>
+        </div>
+
+        <div v-else-if="!state" class="empty-state">
+          <div class="empty-mark">讯</div>
+          <p class="muted">正在载入暗夜工作空间…</p>
+        </div>
+
+        <template v-else>
+          <div v-if="state.logging && !state.logging.ok" class="banner banner-err">
+            <span>{{ state.logging.error }}</span>
+          </div>
+
+          <div v-if="qqBanner && view !== 'settings'" class="quiet-notice">
+            <span class="dot dot-warn" aria-hidden="true"></span>
+            <span class="notice-text">{{ qqBanner.text }}</span>
+            <button v-if="qqBanner.action === 'start'" class="btn-link" @click="quickStartQQ">开启采集</button>
+            <a v-else-if="qqBanner.action === 'qr'" class="btn-link" href="/qq-login" target="_blank" rel="noopener">去扫码 ↗</a>
+          </div>
+
+          <TasksView
+            v-if="view === 'tasks'"
             :state="state"
-            :assistant-open="assistantOpen"
+            @refresh="refresh(true)"
+            @open-task="id => { taskModal = { open: true, mode: 'edit', taskId: id }; }"
+            @create-task="() => { taskModal = { open: true, mode: 'create', taskId: '' }; }"
+            @open-messages="openMessagesFor"
             @navigate="v => navigate(v, 'connections')"
-            @toggle-assistant="assistantOpen = !assistantOpen"
+            @toast="showToast"
           />
-          <button v-if="inDesktop" class="icon-action" @click="openMiniWidget" title="显示 / 隐藏桌面置顶便签小窗">
-            ◳
-          </button>
-          <button
-            class="profile-seal"
-            @click="profileModalOpen = true"
-            :title="state?.profile?.name ? `我的身份与专属规则（${state.profile.name}）` : '设置我的身份与专属规则'"
-          >
-            <span>{{ state?.profile?.name ? state.profile.name.slice(-1) : '我' }}</span>
-          </button>
-        </div>
+
+          <MessagesView
+            v-else-if="view === 'messages'"
+            :state="state"
+            :initial-conversation-id="messageConvId"
+            @refresh="refresh(true)"
+            @toast="showToast"
+          />
+
+          <ConversationsView
+            v-else-if="view === 'conversations'"
+            :state="state"
+            @refresh="refresh(true)"
+            @open-rules="conv => { rulesModalConv = conv; }"
+            @open-add="addGroupModalOpen = true"
+            @open-messages="openMessagesFor"
+            @toast="showToast"
+          />
+
+          <SettingsView
+            v-else
+            :state="state"
+            :initial-sub-tab="settingsSubTab"
+            @refresh="refresh(true)"
+            @navigate="v => navigate(v)"
+            @toast="showToast"
+          />
+        </template>
       </div>
-    </header>
-
-    <!-- 主卷工作区 -->
-    <main class="desk-main" :class="{ 'desk-wide': view === 'messages' }">
-      <div v-if="loadError && !state" class="banner banner-err">
-        <span>无法连接工作台服务：{{ loadError }}</span>
-        <button class="btn btn-secondary btn-sm" @click="refresh(false)">重试</button>
-      </div>
-
-      <div v-else-if="!state" class="empty-state">
-        <div class="empty-mark">讯</div>
-        <p class="muted">展卷中…</p>
-      </div>
-
-      <template v-else>
-        <div v-if="state.logging && !state.logging.ok" class="banner banner-err">
-          <span>{{ state.logging.error }}</span>
-        </div>
-
-        <div v-if="qqBanner && view !== 'settings'" class="quiet-notice">
-          <span class="notice-dot" aria-hidden="true"></span>
-          <span class="notice-text">{{ qqBanner.text }}</span>
-          <button v-if="qqBanner.action === 'start'" class="btn-link" @click="quickStartQQ">开启采集</button>
-          <a v-else-if="qqBanner.action === 'qr'" class="btn-link" href="/qq-login" target="_blank" rel="noopener">去扫码 ↗</a>
-        </div>
-
-        <TasksView
-          v-if="view === 'tasks'"
-          :state="state"
-          @refresh="refresh(true)"
-          @open-task="id => { taskModal = { open: true, mode: 'edit', taskId: id }; }"
-          @create-task="() => { taskModal = { open: true, mode: 'create', taskId: '' }; }"
-          @open-messages="openMessagesFor"
-          @navigate="v => navigate(v, 'connections')"
-          @toast="showToast"
-        />
-
-        <MessagesView
-          v-else-if="view === 'messages'"
-          :state="state"
-          :initial-conversation-id="messageConvId"
-          @refresh="refresh(true)"
-          @toast="showToast"
-        />
-
-        <ConversationsView
-          v-else-if="view === 'conversations'"
-          :state="state"
-          @refresh="refresh(true)"
-          @open-rules="conv => { rulesModalConv = conv; }"
-          @open-add="addGroupModalOpen = true"
-          @open-messages="openMessagesFor"
-          @toast="showToast"
-        />
-
-        <SettingsView
-          v-else
-          :state="state"
-          :initial-sub-tab="settingsSubTab"
-          @refresh="refresh(true)"
-          @navigate="v => navigate(v)"
-          @toast="showToast"
-        />
-      </template>
     </main>
 
     <!-- 通知助手抽屉 -->
@@ -304,300 +382,311 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 </template>
 
 <style scoped>
-.desk-shell {
+.desktop-shell {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
   overflow-x: clip;
 }
 
-/* 顶部宋韵书眉雅栏：双色眉线 + 磨砂素宣 */
-.masthead {
+/* 左侧液态琉璃导航栏 */
+.glass-sidebar {
   position: sticky;
   top: 0;
+  height: 100vh;
+  width: 244px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px 16px;
+  background: var(--glass-sidebar);
+  backdrop-filter: blur(26px) saturate(160%);
+  border-right: 1px solid var(--hairline);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.03), 12px 0 36px -20px rgba(0, 0, 0, 0.65);
   z-index: 30;
-  background: rgba(246, 241, 229, 0.86);
-  backdrop-filter: blur(14px);
-  border-top: 3px solid var(--pine);
-  border-bottom: 1px solid var(--hairline-strong);
-  box-shadow: 0 4px 20px -10px rgba(22, 35, 28, 0.1);
 }
 
-.masthead::before {
-  content: "";
-  position: absolute;
-  top: -3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 140px;
-  height: 3px;
-  background: var(--seal);
-}
-
-.masthead-inner {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 6px 28px;
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.mast-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
+.sidebar-top {
+  padding: 2px 6px 18px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 16px;
 }
 
 .brand {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  color: var(--ink);
+  gap: 11px;
   text-decoration: none;
-  flex-shrink: 0;
+  color: var(--ink);
 }
 .brand:hover { text-decoration: none; }
 
-/* 篆刻朱文方印 */
-.seal-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 5px;
-  padding: 2px;
-  background: linear-gradient(145deg, #c93b29 0%, #9f2718 100%);
-  box-shadow: 0 2px 6px rgba(184, 51, 34, 0.28);
+.brand-orb {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 52%, #14b8a6 100%);
+  box-shadow: 0 6px 18px -4px rgba(99, 102, 241, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.45);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
-.seal-char {
-  width: 100%;
-  height: 100%;
-  border: 1px solid rgba(255, 245, 238, 0.55);
-  border-radius: 3px;
-  color: #fdf8f2;
-  font-family: var(--font-display);
+.brand-orb-char {
   font-size: 17px;
   font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
+  color: #ffffff;
+  letter-spacing: 0.02em;
 }
 
-.brand-lockup {
+.brand-meta {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  min-width: 0;
 }
 
-.brand-word {
-  font-family: var(--font-display);
-  font-size: 21px;
+.brand-name {
+  font-size: 15.5px;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  line-height: 1.05;
-  color: var(--ink);
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  line-height: 1.2;
 }
 
-.brand-sub {
+.brand-tag {
   font-size: 10.5px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--ink-3);
-  line-height: 1.1;
 }
 
-.mast-divider {
-  width: 1px;
-  height: 22px;
-  background: var(--hairline-strong);
-  flex-shrink: 0;
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-/* 胶囊书签导航轨 */
-.chapter-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px;
-  border-radius: 10px;
-  background: rgba(235, 227, 210, 0.65);
-  border: 1px solid var(--hairline-strong);
-  box-shadow: 0 1px 2px rgba(22, 31, 26, 0.04) inset;
-}
-
-.chapter-tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+.nav-group {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  padding: 6px 13px;
-  border-radius: 7px;
+}
+
+.nav-group-label {
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nav-item {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
   font-size: 13.5px;
+  font-weight: 500;
   color: var(--ink-2);
-  white-space: nowrap;
-  flex-shrink: 0;
+  text-align: left;
   transition: all 0.16s var(--ease);
 }
 
-.chapter-tab:hover {
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
   color: var(--ink);
-  background: rgba(255, 253, 248, 0.45);
 }
 
-.chapter-num {
-  font-family: var(--font-display);
-  font-size: 11.5px;
-  color: var(--ink-3);
-  opacity: 0.8;
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.22) 0%, rgba(99, 102, 241, 0.08) 100%);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(129, 140, 248, 0.28);
 }
 
-.chapter-tab.active {
-  background: var(--paper-card);
-  color: var(--pine);
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(22, 35, 28, 0.08), 0 1px 0 #fff inset;
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #818cf8;
+  box-shadow: 0 0 10px rgba(129, 140, 248, 0.85);
 }
 
-.chapter-tab.active .chapter-num {
-  color: var(--seal);
-  opacity: 1;
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.82;
+}
+.nav-item.active .nav-icon { opacity: 1; color: #a5b4fc; }
+
+.nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tab-badge {
+.nav-pill {
   font-size: 11px;
-  line-height: 1;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--seal);
-  color: #fff;
   font-weight: 600;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink-2);
+}
+.nav-pill.pill-indigo {
+  background: rgba(99, 102, 241, 0.85);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.45);
+}
+.nav-pill.pill-cyan {
+  background: rgba(45, 212, 191, 0.16);
+  color: #5eead4;
+  border: 1px solid rgba(45, 212, 191, 0.3);
 }
 
-.tab-count {
-  font-size: 11px;
-  line-height: 1;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--pine-wash);
-  color: var(--pine);
-  font-weight: 600;
+.ai-nav-item {
+  border: 1px solid rgba(129, 140, 248, 0.18);
+  background: rgba(99, 102, 241, 0.06);
+}
+.ai-nav-item:hover {
+  border-color: rgba(129, 140, 248, 0.36);
+  background: rgba(99, 102, 241, 0.14);
+}
+.ai-spark {
+  width: 16px;
+  text-align: center;
+  color: #38bdf8;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
-.mast-right {
+/* 底部实时状态舱 */
+.sidebar-telemetry {
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.telemetry-row {
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  flex-shrink: 0;
+  padding: 5px 7px;
+  border-radius: 7px;
+  font-size: 12px;
+  transition: background 0.14s;
 }
+.telemetry-row:hover { background: rgba(255, 255, 255, 0.06); }
 
-.icon-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--hairline-strong);
-  background: var(--paper-card);
+.tel-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--ink-2);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.15s;
-}
-.icon-action:hover { border-color: var(--pine-border); color: var(--pine); background: var(--pine-wash); }
-
-.profile-seal {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--hairline-strong);
-  background: linear-gradient(180deg, #fffefb 0%, #f4ede0 100%);
-  color: var(--pine);
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.15s;
-}
-.profile-seal:hover {
-  background: var(--pine);
-  border-color: var(--pine);
-  color: #faf7f0;
+  font-weight: 500;
 }
 
-/* 居中留白主卷 */
-.desk-main {
+.tel-val {
+  color: var(--ink-3);
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tel-val.online { color: #cbd5e1; }
+
+/* 右侧主工作区 */
+.workspace-main {
   flex: 1;
-  width: 100%;
-  max-width: 1000px;
   min-width: 0;
-  margin: 0 auto;
-  padding: 24px 28px 48px;
+  min-height: 100vh;
 }
 
-.desk-main.desk-wide {
-  max-width: 1180px;
-  padding: 18px 28px 24px;
+.workspace-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 34px 48px;
+}
+
+.workspace-inner.workspace-wide {
+  max-width: 1240px;
+  padding: 22px 28px 24px;
 }
 
 .quiet-notice {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 10px;
+  padding: 9px 14px;
   margin-bottom: 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--hairline-strong);
-  background: rgba(255, 253, 248, 0.82);
+  border-radius: 10px;
+  border: 1px solid var(--ochre-border);
+  background: var(--ochre-wash);
   font-size: 12.5px;
-  color: var(--ink-2);
+  color: #fde68a;
   flex-wrap: wrap;
 }
-
-.notice-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ochre);
-  flex-shrink: 0;
-}
-
 .notice-text { flex: 1; min-width: 180px; }
 
-@media (max-width: 820px) {
-  .masthead-inner {
-    padding: 8px 14px;
+@media (max-width: 860px) {
+  .desktop-shell { flex-direction: column; }
+  .glass-sidebar {
+    position: sticky;
+    top: 0;
+    height: auto;
+    width: 100%;
+    padding: 10px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .sidebar-top {
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+  .brand-tag, .nav-group-label, .sidebar-telemetry { display: none; }
+  .sidebar-scroll {
+    flex-direction: row;
+    align-items: center;
     gap: 8px;
+    overflow: visible;
   }
-  .mast-divider, .brand-sub { display: none; }
-  .mast-left {
-    width: 100%;
-    justify-content: space-between;
-  }
-  .chapter-tab {
-    padding: 5px 9px;
-    font-size: 13px;
-  }
-  .chapter-num { display: none; }
-  .mast-right {
-    width: 100%;
-    justify-content: space-between;
-    padding-top: 6px;
-    border-top: 1px solid var(--hairline);
-  }
-  .desk-main, .desk-main.desk-wide {
-    padding: 16px 14px 28px;
-  }
+  .nav-list { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .nav-item { width: auto; padding: 6px 10px; font-size: 12.5px; }
+  .nav-item.active::before { display: none; }
+  .workspace-inner, .workspace-inner.workspace-wide { padding: 16px 14px 28px; }
 }
 </style>

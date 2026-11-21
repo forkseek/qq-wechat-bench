@@ -157,14 +157,15 @@ function onKeydown(e) {
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(370px, 92vw);
-  background: var(--paper-card);
+  width: min(390px, 92vw);
+  background: rgba(13, 18, 29, 0.92);
+  backdrop-filter: blur(28px) saturate(160%);
   border-left: 1px solid var(--hairline-strong);
-  box-shadow: -12px 0 36px -18px rgba(21, 46, 36, 0.25);
+  box-shadow: -18px 0 48px -12px rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
   transform: translateX(102%);
-  transition: transform 0.22s var(--ease);
+  transition: transform 0.24s var(--ease);
   z-index: 45;
 }
 

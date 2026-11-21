@@ -336,25 +336,14 @@ onUnmounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--paper-card);
+  background-color: var(--bg);
   background-image:
-    radial-gradient(ellipse 85% 48% at 95% 4%, var(--celadon-wash), transparent 70%),
-    radial-gradient(ellipse 65% 42% at 6% 96%, var(--mist-wash), transparent 72%);
-  border-top: 3px solid var(--pine);
+    radial-gradient(ellipse 85% 48% at 95% 4%, rgba(99, 102, 241, 0.16), transparent 70%),
+    radial-gradient(ellipse 65% 42% at 6% 96%, rgba(20, 184, 166, 0.12), transparent 72%);
+  border-top: 2px solid #6366f1;
   color: var(--ink);
   overflow: hidden;
   position: relative;
-}
-
-.slip-shell::before {
-  content: "";
-  position: absolute;
-  top: -3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 72px;
-  height: 3px;
-  background: var(--seal);
 }
 
 .slip-head {
@@ -362,9 +351,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 12px 9px;
+  padding: 11px 12px 10px;
   border-bottom: 1px solid var(--hairline);
-  background: rgba(249, 246, 238, 0.9);
+  background: rgba(13, 18, 29, 0.85);
+  backdrop-filter: blur(18px);
   flex-shrink: 0;
 }
 
@@ -376,18 +366,18 @@ onUnmounted(() => {
 }
 
 .slip-seal {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: var(--seal);
-  color: #fdf8f2;
-  font-family: var(--font-display);
-  font-size: 14px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 55%, #14b8a6 100%);
+  color: #ffffff;
+  font-size: 13.5px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 3px 10px -2px rgba(99, 102, 241, 0.55);
 }
 
 .slip-title-row {
@@ -422,14 +412,14 @@ onUnmounted(() => {
 .slip-tools {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .slip-dot {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   font-size: 11px;
   color: var(--ink-2);
   white-space: nowrap;
@@ -453,14 +443,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 6px 10px;
-  background: rgba(31, 92, 73, 0.08);
+  padding: 7px 10px;
+  background: rgba(99, 102, 241, 0.16);
   border-bottom: 1px solid var(--pine-border);
   font-size: 11.5px;
   flex-shrink: 0;
 }
 
-.slip-sel-count { color: var(--pine); }
+.slip-sel-count { color: #c7d2fe; }
 .slip-sel-btns { display: flex; align-items: center; gap: 4px; }
 
 .slip-act-btn {
@@ -468,11 +458,11 @@ onUnmounted(() => {
   font-size: 11px;
   border-radius: 999px;
   border: 1px solid var(--hairline-strong);
-  background: var(--paper-card);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--ink-2);
 }
-.slip-act-btn:hover { border-color: var(--pine-border); color: var(--pine); }
-.slip-act-btn.ok { background: var(--pine); border-color: var(--pine); color: #faf7f0; }
+.slip-act-btn:hover { border-color: var(--pine-border); color: #fff; }
+.slip-act-btn.ok { background: #6366f1; border-color: #818cf8; color: #ffffff; }
 .slip-act-btn.danger:hover { border-color: var(--seal); color: var(--seal); }
 
 .slip-undo-bar {
@@ -480,14 +470,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 5px 10px;
-  background: rgba(242, 237, 226, 0.92);
-  border-bottom: 1px solid var(--hairline);
+  padding: 6px 10px;
+  background: var(--ochre-wash);
+  border-bottom: 1px solid var(--ochre-border);
   font-size: 11.5px;
   flex-shrink: 0;
 }
-.slip-undo-text { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.slip-undo-btn { color: var(--pine); font-weight: 600; white-space: nowrap; }
+.slip-undo-text { color: #fde68a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slip-undo-btn { color: #a5b4fc; font-weight: 600; white-space: nowrap; }
 
 .slip-body {
   flex: 1;
@@ -541,29 +531,29 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--hairline);
   transition: background 0.14s;
 }
-.slip-item:hover { background: rgba(239, 232, 216, 0.36); margin: 0 -12px; padding: 11px 16px; }
+.slip-item:hover { background: rgba(255, 255, 255, 0.045); margin: 0 -12px; padding: 11px 16px; }
 .slip-item:last-child { border-bottom: 0; }
-.slip-item.overdue { background: rgba(184, 51, 34, 0.038); margin: 0 -12px; padding: 11px 16px; border-left: 3px solid var(--seal); }
-.slip-item.selected { background: rgba(27, 73, 56, 0.065); margin: 0 -12px; padding: 11px 16px; border-left: 3px solid var(--pine); }
+.slip-item.overdue { background: rgba(244, 63, 94, 0.08); margin: 0 -12px; padding: 11px 16px; border-left: 3px solid var(--seal); }
+.slip-item.selected { background: rgba(99, 102, 241, 0.14); margin: 0 -12px; padding: 11px 16px; border-left: 3px solid #818cf8; }
 
 .slip-check {
   width: 17px;
   height: 17px;
   border-radius: 50%;
-  border: 1.5px solid var(--hairline-strong);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
   margin-top: 2px;
   flex-shrink: 0;
-  background: var(--paper-card);
+  background: rgba(255, 255, 255, 0.04);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
 }
-.slip-check:hover { border-color: var(--pine); background: var(--pine-wash); }
+.slip-check:hover { border-color: #818cf8; background: var(--pine-wash); }
 .slip-check.checked {
-  border-color: var(--pine);
-  background: var(--pine);
-  color: #faf7f0;
+  border-color: #a5b4fc;
+  background: #6366f1;
+  color: #ffffff;
 }
 .slip-check-mark {
   font-size: 10px;
@@ -608,34 +598,34 @@ onUnmounted(() => {
 }
 
 .slip-mini-btn {
-  padding: 2px 6px;
+  padding: 2px 7px;
   font-size: 11px;
   border-radius: 999px;
-  border: 1px solid var(--hairline);
-  background: var(--paper-card);
-  color: var(--ink-3);
+  border: 1px solid var(--hairline-strong);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-2);
   white-space: nowrap;
 }
-.slip-mini-btn:hover { border-color: var(--hairline-strong); color: var(--ink); }
-.slip-mini-btn.ok:hover { border-color: var(--pine); background: var(--pine-wash); color: var(--pine); }
+.slip-mini-btn:hover { border-color: var(--seal-border); color: var(--seal); background: var(--seal-wash); }
+.slip-mini-btn.ok:hover { border-color: var(--wx-border); background: var(--wx-wash); color: var(--wx); }
 
-.due-overdue { color: var(--seal); font-weight: 600; }
-.due-today { color: var(--ochre); font-weight: 600; }
-.due-soon { color: var(--pine); }
+.due-overdue { color: #fda4af; font-weight: 600; }
+.due-today { color: #fcd34d; font-weight: 600; }
+.due-soon { color: #7dd3fc; }
 .due-unknown { color: var(--ink-3); }
 
 .slip-toast {
-  padding: 5px 10px;
+  padding: 6px 10px;
   font-size: 12px;
   text-align: center;
-  background: var(--pine);
-  color: #faf7f0;
+  background: #4f46e5;
+  color: #ffffff;
 }
 
 .slip-add {
   padding: 9px 10px;
   border-top: 1px solid var(--hairline);
-  background: var(--paper);
+  background: rgba(11, 15, 24, 0.92);
   display: flex;
   flex-direction: column;
   gap: 6px;

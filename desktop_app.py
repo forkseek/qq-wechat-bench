@@ -690,7 +690,7 @@ class DesktopShell:
             height=main_h,
             min_size=(820, 560),
             hidden=(self.start_mode != "main"),
-            background_color="#F7F4ED",
+            background_color="#07090E",
         )
         self.widget_window = webview.create_window(
             "讯课 · 今日待办",
@@ -703,7 +703,7 @@ class DesktopShell:
             min_size=(290, 360),
             on_top=True,
             hidden=(self.start_mode != "widget"),
-            background_color="#F7F4ED",
+            background_color="#07090E",
         )
         self.main_window.events.closing += self._on_main_closing
         self.widget_window.events.closing += self._on_widget_closing
