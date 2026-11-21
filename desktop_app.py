@@ -8,6 +8,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
@@ -25,7 +26,7 @@ CONTROL_FILE = DATA_DIR / "desktop-control.json"
 ICON_FILE = DATA_DIR / "xunke-app.ico"
 WEBVIEW_PROFILE_DIR = DATA_DIR / "webview-profile"
 ERROR_LOG_FILE = DATA_DIR / "desktop-error.log"
-MUTEX_NAME = "Local\\XunkeWorkbenchDesktopShellMutex"
+STDOUT_LOG_FILE = DATA_DIR / "desktop-runtime.log"
 ERROR_ALREADY_EXISTS = 183
 
 SWP_NOSIZE = 0x0001
@@ -36,6 +37,23 @@ HWND_TOPMOST = -1
 HWND_NOTOPMOST = -2
 
 _MUTEX_HANDLE = None
+
+
+def _ensure_stdio() -> None:
+    """pythonw.exe 下 sys.stdout / sys.stderr 为 None，重定向到日志文件避免第三方库 print 报错。"""
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if sys.stdout is None or sys.stderr is None:
+            fh = STDOUT_LOG_FILE.open("a", encoding="utf-8", buffering=1)
+            if sys.stdout is None:
+                sys.stdout = fh
+            if sys.stderr is None:
+                sys.stderr = fh
+    except Exception:
+        pass
+
+
+_ensure_stdio()
 
 
 def log_error(context: str, err: BaseException | None = None) -> None:
@@ -49,19 +67,53 @@ def log_error(context: str, err: BaseException | None = None) -> None:
         pass
 
 
+def get_desktop_name() -> str:
+    """获取当前线程所在的 Win32 桌面名称（例如真实桌面为 'Default'）。"""
+    if os.name != "nt":
+        return "default"
+    try:
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        h_desk = user32.GetThreadDesktop(kernel32.GetCurrentThreadId())
+        if not h_desk:
+            return "default"
+        buf = ctypes.create_unicode_buffer(256)
+        needed = ctypes.c_ulong()
+        if user32.GetUserObjectInformationW(h_desk, 2, buf, 512, ctypes.byref(needed)):
+            raw = buf.value.strip()
+            return re.sub(r"[^A-Za-z0-9_.-]", "_", raw) or "default"
+    except Exception:
+        pass
+    return "default"
+
+
 def acquire_single_instance_mutex() -> bool:
-    """获取 Windows 命名互斥体，确保启动过程中绝不会并发拉起多个桌面壳进程。"""
+    """获取当前 Win32 桌面对应的命名互斥体，防止连点启动多个窗口，且不与后台测试沙箱互相阻塞。"""
     global _MUTEX_HANDLE
     if os.name != "nt":
         return True
     try:
+        mutex_name = f"Local\\XunkeWorkbenchDesktopShellMutex_{get_desktop_name()}"
         kernel32 = ctypes.windll.kernel32
-        handle = kernel32.CreateMutexW(None, True, MUTEX_NAME)
+        handle = kernel32.CreateMutexW(None, True, mutex_name)
         last_err = kernel32.GetLastError()
         _MUTEX_HANDLE = handle
         return last_err != ERROR_ALREADY_EXISTS
     except Exception:
         return True
+
+
+def _find_node_exe() -> str:
+    found = shutil.which("node") or shutil.which("node.exe")
+    if found:
+        return found
+    for candidate in (
+        r"C:\Program Files\nodejs\node.exe",
+        r"C:\Program Files (x86)\nodejs\node.exe",
+    ):
+        if Path(candidate).is_file():
+            return candidate
+    return "node"
 
 
 def load_runtime() -> dict:
@@ -89,7 +141,7 @@ def load_runtime() -> dict:
     except Exception:
         try:
             out = subprocess.check_output(
-                ["node", str(ROOT / "scripts" / "runtime-config.mjs"), str(ROOT)],
+                [_find_node_exe(), str(ROOT / "scripts" / "runtime-config.mjs"), str(ROOT)],
                 cwd=str(ROOT),
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
                 text=True,
@@ -103,7 +155,7 @@ def load_runtime() -> dict:
 
 def server_healthy(base_url: str, expected_app: str) -> bool:
     try:
-        with urllib.request.urlopen(f"{base_url}/api/health", timeout=2) as resp:
+        with urllib.request.urlopen(f"{base_url}/api/health", timeout=1.5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             return bool(data.get("ok")) and data.get("app") == expected_app
     except Exception:
@@ -115,28 +167,45 @@ def ensure_backend(runtime: dict) -> bool:
     app_name = runtime.get("app", "qq-school-workbench")
     if server_healthy(base_url, app_name):
         return True
-    subprocess.Popen(
-        [
-            "powershell.exe",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-WindowStyle",
-            "Hidden",
-            "-File",
-            str(ROOT / "start.ps1"),
-            "-NoBrowser",
-        ],
-        cwd=str(ROOT),
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    deadline = time.time() + 20
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    node_exe = _find_node_exe()
+    env_file = ROOT / ".env"
+    server_file = ROOT / "server.mjs"
+    out_log = (DATA_DIR / "runtime.log").open("a", encoding="utf-8")
+    err_log = (DATA_DIR / "runtime-error.log").open("a", encoding="utf-8")
+    try:
+        proc = subprocess.Popen(
+            [node_exe, f"--env-file-if-exists={env_file}", str(server_file)],
+            cwd=str(ROOT),
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            stdout=out_log,
+            stderr=err_log,
+        )
+        (DATA_DIR / "runtime.pid").write_text(str(proc.pid), encoding="ascii")
+    except Exception as err:
+        log_error("spawn node backend failed, falling back to start.ps1", err)
+        subprocess.Popen(
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-WindowStyle",
+                "Hidden",
+                "-File",
+                str(ROOT / "start.ps1"),
+                "-NoBrowser",
+            ],
+            cwd=str(ROOT),
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    deadline = time.time() + 18
     while time.time() < deadline:
         if server_healthy(base_url, app_name):
             return True
-        time.sleep(0.25)
+        time.sleep(0.2)
     return False
 
 
@@ -255,7 +324,7 @@ def _cleanup_stale_pid(stale_pid: int) -> None:
 
 
 def send_control_command(cmd: str, cleanup_on_fail: bool = True) -> bool:
-    """尝试向已运行的桌面壳实例发送控制指令。"""
+    """尝试向当前桌面上已运行的桌面壳实例发送控制指令；若为其他桌面残留进程则自动清理。"""
     if not CONTROL_FILE.exists():
         return False
     stale_pid = 0
@@ -264,7 +333,15 @@ def send_control_command(cmd: str, cleanup_on_fail: bool = True) -> bool:
         port = int(info["port"])
         token = str(info["token"])
         stale_pid = int(info.get("pid") or 0)
+        owner_desktop = info.get("desktop")
+        current_desktop = get_desktop_name()
         if stale_pid and not _is_pid_alive(stale_pid):
+            CONTROL_FILE.unlink(missing_ok=True)
+            return False
+        # 如果残留进程是在非当前 Win32 桌面（如后台测试沙箱）启动的，直接清理，绝不阻塞真实桌面
+        if cmd != "quit" and owner_desktop and owner_desktop != current_desktop:
+            if stale_pid:
+                _cleanup_stale_pid(stale_pid)
             CONTROL_FILE.unlink(missing_ok=True)
             return False
         with socket.create_connection(("127.0.0.1", port), timeout=0.6) as sock:
@@ -323,6 +400,7 @@ def _bring_hwnd_to_front(hwnd: int, keep_topmost: bool = False) -> None:
         return
     try:
         user32 = ctypes.windll.user32
+        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
         user32.SetWindowPos(
             hwnd,
             HWND_TOPMOST,
@@ -497,7 +575,12 @@ class DesktopShell:
         port = srv.getsockname()[1]
         self.control_socket = srv
         CONTROL_FILE.write_text(
-            json.dumps({"port": port, "token": self.control_token, "pid": os.getpid()}),
+            json.dumps({
+                "port": port,
+                "token": self.control_token,
+                "pid": os.getpid(),
+                "desktop": get_desktop_name(),
+            }),
             encoding="utf-8",
         )
 
@@ -662,7 +745,7 @@ def main() -> int:
 
         target_cmd = "noop" if args.background else ("show_widget" if args.widget else "show_main")
 
-        # 1. 通过 Windows 命名互斥体防止启动期间连点拉起多个进程
+        # 1. 通过当前桌面命名互斥体防止连点拉起多个进程
         if not acquire_single_instance_mutex():
             deadline = time.time() + 8.0
             while time.time() < deadline:
@@ -671,7 +754,7 @@ def main() -> int:
                 time.sleep(0.2)
             return 0
 
-        # 2. 已持有唯一实例互斥体，若仍有旧实例或残留 control 文件则唤醒或清理
+        # 2. 已持有当前桌面唯一实例互斥体，若仍有旧实例或跨桌面残留进程则唤醒或清理
         if send_control_command(target_cmd, cleanup_on_fail=True):
             return 0
 
@@ -682,9 +765,21 @@ def main() -> int:
 
         if not ensure_backend(runtime):
             log_error("ensure_backend failed")
+            if os.name == "nt" and not args.background:
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    "讯课工作台后台服务未能启动，请检查 data\\runtime-error.log。",
+                    "讯课工作台",
+                    0x10,
+                )
             return 1
 
-        shell.run()
+        try:
+            shell.run()
+        except Exception as gui_err:
+            log_error("shell.run failed, falling back to browser", gui_err)
+            if not args.background:
+                webbrowser.open(runtime["url"])
         return 0
     except Exception as err:
         log_error("main", err)
