@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from './api.js';
-import { formatDue, sortPendingTasks, lunarHeading, isStaleHistoricalTask } from './utils/format.js';
+import { formatDue, sortPendingTasks, lunarHeading, isStaleHistoricalTask, inferTaskObligation } from './utils/format.js';
 
 const state = ref(null);
 const error = ref('');
@@ -15,6 +15,7 @@ const showDate = ref(false);
 const toastText = ref('');
 const selectedIds = ref(new Set());
 const undoAction = ref(null);
+const onlyRequired = ref(false);
 let timer = null;
 let toastTimer = null;
 let undoTimer = null;
@@ -27,6 +28,18 @@ const pendingTasks = computed(() =>
   sortPendingTasks(
     (state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other' && !isStaleHistoricalTask(t))
   )
+);
+
+const requiredTasks = computed(() =>
+  pendingTasks.value.filter(t => inferTaskObligation(t) === 'required')
+);
+
+const optionalTasks = computed(() =>
+  pendingTasks.value.filter(t => inferTaskObligation(t) === 'optional')
+);
+
+const displayTasks = computed(() =>
+  onlyRequired.value ? requiredTasks.value : [...requiredTasks.value, ...optionalTasks.value]
 );
 
 const qqOnline = computed(() => Boolean(state.value?.qq?.online));
@@ -215,8 +228,18 @@ onUnmounted(() => {
         <span class="slip-seal">讯</span>
         <div>
           <div class="slip-title-row">
-            <span class="slip-title">今日案头</span>
-            <span class="slip-count num">{{ pendingTasks.length }}</span>
+            <span class="slip-title">必做案头</span>
+            <span class="slip-count num">{{ requiredTasks.length }}</span>
+            <button
+              v-if="optionalTasks.length"
+              type="button"
+              class="slip-filter-pill"
+              :class="{ active: onlyRequired }"
+              @click="onlyRequired = !onlyRequired"
+              title="切换是否隐藏普通通知"
+            >
+              {{ onlyRequired ? '仅看必做' : `+${optionalTasks.length} 通知` }}
+            </button>
           </div>
           <p v-if="lunarText" class="slip-lunar">{{ lunarText }}</p>
         </div>
@@ -258,19 +281,21 @@ onUnmounted(() => {
     <div class="slip-body">
       <div v-if="error && !state" class="slip-empty muted">{{ error }}</div>
       <div v-else-if="!state" class="slip-empty muted">展卷中…</div>
-      <div v-else-if="!pendingTasks.length" class="slip-empty">
+      <div v-else-if="!displayTasks.length" class="slip-empty">
         <span class="slip-zen-seal" aria-hidden="true">无事</span>
-        <p class="slip-empty-title">案头清净</p>
-        <p class="muted">下方可速记一条，群通知也会自动摘录至此。</p>
+        <p class="slip-empty-title">{{ onlyRequired ? '暂无必做事项' : '案头清净' }}</p>
+        <p class="muted">下方可速记一条，群通知也会自动分流摘录至此。</p>
       </div>
       <ul v-else class="slip-list">
         <li
-          v-for="task in pendingTasks"
+          v-for="task in displayTasks"
           :key="task.id"
           class="slip-item"
           :class="{
             overdue: formatDue(task).state === 'overdue',
-            selected: selectedIds.has(task.id)
+            selected: selectedIds.has(task.id),
+            'is-required': inferTaskObligation(task) === 'required',
+            'is-optional': inferTaskObligation(task) === 'optional'
           }"
         >
           <button
@@ -285,6 +310,8 @@ onUnmounted(() => {
           </button>
           <div class="slip-item-main">
             <div class="slip-item-title">
+              <span v-if="inferTaskObligation(task) === 'required'" class="slip-ob-req">必做</span>
+              <span v-else class="slip-ob-opt">通知</span>
               <span>{{ task.title }}</span>
               <span v-if="formatDue(task).state === 'overdue'" class="slip-overdue-tag">逾期</span>
             </div>
@@ -399,9 +426,47 @@ onUnmounted(() => {
   padding: 0 6px;
   border-radius: 999px;
   background: var(--pine-wash);
-  color: var(--pine);
+  color: #c7d2fe;
   font-weight: 600;
 }
+
+.slip-filter-pill {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.slip-filter-pill.active {
+  background: #6366f1;
+  border-color: #818cf8;
+  color: #ffffff;
+}
+
+.slip-ob-req {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(99, 102, 241, 0.28);
+  border: 1px solid rgba(129, 140, 248, 0.45);
+  color: #c7d2fe;
+  white-space: nowrap;
+}
+
+.slip-ob-opt {
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.slip-item.is-optional .slip-item-title { color: var(--ink-2); font-weight: 400; }
 
 .slip-lunar {
   font-size: 11px;

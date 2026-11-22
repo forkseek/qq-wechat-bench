@@ -8,7 +8,7 @@ import { Messaging } from '../lib/messaging.mjs';
 import { Maintenance } from '../lib/maintenance.mjs';
 import { EventLog } from '../lib/event-log.mjs';
 import { QQSupervisor } from '../lib/supervisor.mjs';
-import { normalizeEvent, validateTask, timeString, findDuplicateTask, summarizeTasks, isStaleTask } from '../lib/domain.mjs';
+import { normalizeEvent, validateTask, timeString, findDuplicateTask, summarizeTasks, isStaleTask, inferTaskObligation } from '../lib/domain.mjs';
 import { normalizeWechat } from '../lib/wechat-domain.mjs';
 import { analyzeBatch, chatContext, modelConfig } from '../lib/model.mjs';
 import { createApp } from '../server.mjs';
@@ -285,4 +285,20 @@ test('桌面 QQ 本地直读：自动发现群与消息，与历史 NapCat group
   const summary = summarizeTasks([staleAiTask, activeAiTask, manualOldTask], now);
   assert.equal(summary.pendingCount, 2);
   assert.equal(summary.stalePendingCount, 1);
+
+  // 必做事项 vs 普通通知分流识别与持久化
+  const optNotice = { id: 't4', title: '关注第十三届国家宪法日表演人员报名表', status: 'pending', relevance: 'everyone', kind: '通知' };
+  const pubNotice = { id: 't5', title: '核对献血名单及献血先进个人名单公示信息', status: 'pending', relevance: 'unclear', kind: '通知' };
+  const reqHomework = { id: 't6', title: '完成大物实验报告生生互评', status: 'pending', relevance: 'everyone', kind: '作业' };
+  assert.equal(inferTaskObligation(optNotice), 'optional');
+  assert.equal(inferTaskObligation(pubNotice), 'optional');
+  assert.equal(inferTaskObligation(reqHomework), 'required');
+  const splitSummary = summarizeTasks([optNotice, pubNotice, reqHomework], now);
+  assert.equal(splitSummary.requiredPendingCount, 1);
+  assert.equal(splitSummary.optionalPendingCount, 2);
+
+  const createdOpt = await (await api('/api/tasks', { title: '选修讲座预告', obligation: 'optional' }, 'POST')).json();
+  assert.equal(createdOpt.obligation, 'optional');
+  const promoted = await (await api(`/api/tasks/${encodeURIComponent(createdOpt.id)}`, { revision: createdOpt.revision, obligation: 'required' }, 'PATCH')).json();
+  assert.equal(promoted.obligation, 'required');
 });

@@ -11,7 +11,8 @@ import {
   formatTime,
   sortPendingTasks,
   relevanceLabel,
-  isStaleHistoricalTask
+  isStaleHistoricalTask,
+  inferTaskObligation
 } from '../utils/format.js';
 
 const props = defineProps({
@@ -19,19 +20,21 @@ const props = defineProps({
 });
 const emit = defineEmits(['refresh', 'navigate', 'open-messages', 'toast']);
 
-const tab = ref('pending'); // 'pending' | 'week' | 'review' | 'done' | 'cancelled' | 'stale'
+// 'pending'（默认分流视图：上方必做事项 + 下方普通通知）| 'required' | 'optional' | 'week' | 'done' | 'cancelled' | 'stale'
+const tab = ref('pending');
 const query = ref('');
 const selectedIds = ref(new Set());
 const busy = ref(false);
 const showMoreRuns = ref(false);
 const showOther = ref(false);
+const optionalCollapsed = ref(false);
 
 // 内联新建待办栏
 const showQuickCreate = ref(false);
-const createForm = ref({ title: '', dueDate: '', dueTime: '', description: '' });
+const createForm = ref({ title: '', dueDate: '', dueTime: '', obligation: 'required', description: '' });
 const creating = ref(false);
 
-// 内联展开的详情抽屉（点任务行直接在下方展开群原话与快捷改期，不弹窗遮挡）
+// 内联展开的详情抽屉
 const expandedId = ref('');
 const detailCache = reactive({});
 
@@ -44,6 +47,12 @@ const monitoredGroupCount = computed(() => (props.state?.conversations || []).fi
 
 const freshPending = computed(() =>
   sortPendingTasks(allTasks.value.filter(t => t.status === 'pending' && t.relevance !== 'other' && !isStaleHistoricalTask(t)))
+);
+const requiredPending = computed(() =>
+  freshPending.value.filter(t => inferTaskObligation(t) === 'required')
+);
+const optionalPending = computed(() =>
+  freshPending.value.filter(t => inferTaskObligation(t) === 'optional')
 );
 const stalePending = computed(() =>
   sortPendingTasks(allTasks.value.filter(t => t.status === 'pending' && t.relevance !== 'other' && isStaleHistoricalTask(t)))
@@ -64,13 +73,24 @@ const stats = computed(() => {
   const list = freshPending.value;
   return {
     pending: list.length,
-    review: list.filter(t => t.needsReview).length,
+    required: requiredPending.value.length,
+    optional: optionalPending.value.length,
     week: list.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= in7).length,
-    overdue: list.filter(t => t.dueDate && t.dueDate < today).length,
+    overdue: requiredPending.value.filter(t => t.dueDate && t.dueDate < today).length,
     stale: stalePending.value.length,
     done: doneTasks.value.length
   };
 });
+
+function matchQuery(list) {
+  const q = query.value.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter(t => {
+    const conv = convMap.value.get(t.conversationId);
+    const hay = `${t.title || ''} ${t.description || ''} ${conv?.title || ''}`.toLowerCase();
+    return hay.includes(q);
+  });
+}
 
 const visibleTasks = computed(() => {
   const today = todayBeijing();
@@ -79,17 +99,52 @@ const visibleTasks = computed(() => {
   if (tab.value === 'done') base = doneTasks.value;
   else if (tab.value === 'cancelled') base = cancelledTasks.value;
   else if (tab.value === 'stale') base = stalePending.value;
-  else if (tab.value === 'review') base = freshPending.value.filter(t => t.needsReview);
+  else if (tab.value === 'required') base = requiredPending.value;
+  else if (tab.value === 'optional') base = optionalPending.value;
   else if (tab.value === 'week') base = freshPending.value.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= in7);
-  else base = freshPending.value;
+  else base = [...requiredPending.value, ...optionalPending.value];
+  return matchQuery(base);
+});
 
-  const q = query.value.trim().toLowerCase();
-  if (!q) return base;
-  return base.filter(t => {
-    const conv = convMap.value.get(t.conversationId);
-    const hay = `${t.title || ''} ${t.description || ''} ${conv?.title || ''}`.toLowerCase();
-    return hay.includes(q);
-  });
+const displaySections = computed(() => {
+  if (tab.value === 'pending') {
+    const reqList = matchQuery(requiredPending.value);
+    const optList = matchQuery(optionalPending.value);
+    return [
+      {
+        key: 'required',
+        kind: 'required',
+        title: '必须完成 · 必做事项',
+        subtitle: '作业 · 实验报告 · 考试 · 汇报 · 全员硬性任务，优先处理',
+        badge: '必做优先',
+        items: reqList,
+        collapsible: false,
+        emptyText: query.value.trim() ? '未在必做事项中匹配到结果' : '太棒了，当前没有必须完成的硬性任务'
+      },
+      {
+        key: 'optional',
+        kind: 'optional',
+        title: '普通通知 · 活动与选修关注',
+        subtitle: '讲座 · 比赛演出报名 · 志愿招募 · 公示信息等非强制通知，按需查看或忽略',
+        badge: '非强制分流',
+        items: optList,
+        collapsible: true,
+        emptyText: query.value.trim() ? '未在普通通知中匹配到结果' : '当前没有额外的普通通知'
+      }
+    ];
+  }
+  return [
+    {
+      key: tab.value,
+      kind: tab.value === 'required' ? 'required' : tab.value === 'optional' ? 'optional' : 'plain',
+      title: '',
+      subtitle: '',
+      badge: '',
+      items: visibleTasks.value,
+      collapsible: false,
+      emptyText: ''
+    }
+  ];
 });
 
 const allVisibleSelected = computed(() =>
@@ -108,6 +163,10 @@ function convTitle(task) {
 function convPlatform(task) {
   if (!task.conversationId) return '';
   return convMap.value.get(task.conversationId)?.platform || 'qq';
+}
+
+function isRequired(task) {
+  return inferTaskObligation(task) === 'required';
 }
 
 function switchTab(nextTab) {
@@ -145,6 +204,7 @@ async function toggleExpand(task) {
       dueDate: task.dueDate || '',
       dueTime: task.dueTime || '',
       relevance: task.relevance || 'mine',
+      obligation: inferTaskObligation(task),
       description: task.description || ''
     }
   };
@@ -189,6 +249,7 @@ async function saveInlineEdit(task) {
       dueDate: f.dueDate || null,
       dueTime: f.dueTime || null,
       relevance: f.relevance,
+      obligation: f.obligation,
       description: f.description,
       needsReview: false
     }, 'PATCH');
@@ -199,6 +260,46 @@ async function saveInlineEdit(task) {
   } finally {
     busy.value = false;
   }
+}
+
+async function setObligation(tasksToChange, targetObligation) {
+  if (!tasksToChange.length || busy.value) return;
+  busy.value = true;
+  const undoItems = [];
+  let count = 0;
+  try {
+    for (const t of tasksToChange) {
+      const current = allTasks.value.find(x => x.id === t.id) || t;
+      try {
+        await api(`/api/tasks/${encodeURIComponent(current.id)}`, {
+          revision: current.revision,
+          obligation: targetObligation,
+          needsReview: false
+        }, 'PATCH');
+        undoItems.push({
+          id: current.id,
+          prevStatus: current.status,
+          prevReview: current.needsReview,
+          prevObligation: inferTaskObligation(current)
+        });
+        selectedIds.value.delete(current.id);
+        count++;
+      } catch { /* ignore */ }
+    }
+    if (count > 0) {
+      const label = targetObligation === 'required' ? '移入必做事项' : '分流为普通通知';
+      lastUndo.value = { label: `已将 ${count} 项${label}`, items: undoItems };
+      emit('toast', `已将 ${count} 项${label}`);
+      emit('refresh');
+    }
+  } finally {
+    busy.value = false;
+  }
+}
+
+function batchChangeObligation(targetObligation) {
+  const list = allTasks.value.filter(t => selectedIds.value.has(t.id));
+  return setObligation(list, targetObligation);
 }
 
 async function applyStatusToTasks(tasksToChange, nextStatus, actionLabel) {
@@ -215,7 +316,12 @@ async function applyStatusToTasks(tasksToChange, nextStatus, actionLabel) {
           status: nextStatus,
           needsReview: false
         }, 'PATCH');
-        undoItems.push({ id: current.id, prevStatus: current.status, prevReview: current.needsReview });
+        undoItems.push({
+          id: current.id,
+          prevStatus: current.status,
+          prevReview: current.needsReview,
+          prevObligation: inferTaskObligation(current)
+        });
         selectedIds.value.delete(current.id);
         if (expandedId.value === current.id) expandedId.value = '';
         count++;
@@ -289,7 +395,8 @@ async function undoLastAction() {
         await api(`/api/tasks/${encodeURIComponent(current.id)}`, {
           revision: current.revision,
           status: item.prevStatus,
-          needsReview: item.prevReview
+          needsReview: item.prevReview,
+          ...(item.prevObligation ? { obligation: item.prevObligation } : {})
         }, 'PATCH');
         restored++;
       } catch { /* ignore */ }
@@ -317,11 +424,12 @@ async function submitQuickCreate() {
       title: f.title.trim(),
       dueDate: f.dueDate || null,
       dueTime: f.dueTime || null,
+      obligation: f.obligation || 'required',
       description: f.description,
       relevance: 'mine',
       status: 'pending'
     }, 'POST');
-    createForm.value = { title: '', dueDate: '', dueTime: '', description: '' };
+    createForm.value = { title: '', dueDate: '', dueTime: '', obligation: 'required', description: '' };
     showQuickCreate.value = false;
     emit('toast', '已记入待办');
     emit('refresh');
@@ -355,7 +463,9 @@ function describeRun(run) {
         </div>
         <div class="ws-heading-row">
           <h1 class="ws-title">今日待办</h1>
-          <span class="ws-subtitle">正在同步 <strong class="num">{{ monitoredGroupCount }}</strong> 个关注群聊</span>
+          <span class="ws-subtitle">
+            必做事项 <strong class="num text-indigo">{{ stats.required }}</strong> 项 · 普通通知 <strong class="num">{{ stats.optional }}</strong> 条 · 守护 <strong class="num">{{ monitoredGroupCount }}</strong> 个群
+          </span>
         </div>
       </div>
 
@@ -375,26 +485,39 @@ function describeRun(run) {
       </div>
     </header>
 
-    <!-- 四联液态琉璃 Bento 看板 -->
-    <div class="bento-grid" aria-label="待办概览">
-      <button class="bento-card bento-indigo" :class="{ active: tab === 'pending' }" @click="switchTab('pending')">
+    <!-- 四联液态琉璃 Bento 看板（首卡直击「必做事项」，次卡隔离「普通通知」） -->
+    <div class="bento-grid" aria-label="待办分流概览">
+      <button class="bento-card bento-indigo" :class="{ active: tab === 'required' || tab === 'pending' }" @click="switchTab('required')">
         <div class="bento-top">
-          <span class="bento-label">当前待办</span>
+          <span class="bento-label">必须完成 · 必做事项</span>
           <span class="bento-icon-wrap icon-indigo">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="m9 12 2 2 4-4" />
+              <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </span>
         </div>
-        <div class="bento-value num">{{ stats.pending }}</div>
-        <div class="bento-foot">活跃需要跟进的事项</div>
+        <div class="bento-value num">{{ stats.required }}</div>
+        <div class="bento-foot">全员必做与本人硬性任务</div>
       </button>
 
-      <button class="bento-card bento-cyan" :class="{ active: tab === 'week' }" @click="switchTab('week')">
+      <button class="bento-card bento-cyan" :class="{ active: tab === 'optional' }" @click="switchTab('optional')">
+        <div class="bento-top">
+          <span class="bento-label">普通通知 · 按需关注</span>
+          <span class="bento-icon-wrap icon-cyan">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </span>
+        </div>
+        <div class="bento-value num">{{ stats.optional }}</div>
+        <div class="bento-foot">活动报名 · 讲座 · 公示分流</div>
+      </button>
+
+      <button class="bento-card bento-amber" :class="{ active: tab === 'week' }" @click="switchTab('week')">
         <div class="bento-top">
           <span class="bento-label">七日内截止</span>
-          <span class="bento-icon-wrap icon-cyan">
+          <span class="bento-icon-wrap icon-amber">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <rect x="3" y="4" width="18" height="18" rx="2" />
               <path d="M16 2v4M8 2v4M3 10h18" />
@@ -402,30 +525,16 @@ function describeRun(run) {
           </span>
         </div>
         <div class="bento-value num">{{ stats.week }}</div>
-        <div class="bento-foot">本周临近截止提醒</div>
-      </button>
-
-      <button class="bento-card bento-amber" :class="{ active: tab === 'review' }" @click="switchTab('review')">
-        <div class="bento-top">
-          <span class="bento-label">待核实确认</span>
-          <span class="bento-icon-wrap icon-amber">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8v4M12 16h.01" />
-            </svg>
-          </span>
-        </div>
-        <div class="bento-value num">{{ stats.review }}</div>
-        <div class="bento-foot">AI 新摘录或时间待定</div>
+        <div class="bento-foot">本周临近截止节点</div>
       </button>
 
       <button
         v-if="stats.overdue > 0"
         class="bento-card bento-rose"
-        @click="switchTab('pending')"
+        @click="switchTab('required')"
       >
         <div class="bento-top">
-          <span class="bento-label">近期逾期</span>
+          <span class="bento-label">必做近期逾期</span>
           <span class="bento-icon-wrap icon-rose">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
               <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -434,7 +543,7 @@ function describeRun(run) {
           </span>
         </div>
         <div class="bento-value num">{{ stats.overdue }}</div>
-        <div class="bento-foot">7 日内已过截止时间</div>
+        <div class="bento-foot">7 日内已过截止的必做项</div>
       </button>
 
       <button
@@ -467,6 +576,10 @@ function describeRun(run) {
           required
           placeholder="输入待办标题…（例如：周五 17:00 前提交大物实验报告）"
         />
+        <select v-model="createForm.obligation" class="select qc-ob-select">
+          <option value="required">⚡ 必做事项</option>
+          <option value="optional">📌 普通通知</option>
+        </select>
         <div class="qc-date-pills">
           <button type="button" class="mini-date-pill" @click="setQuickDate(createForm, 0)">今天</button>
           <button type="button" class="mini-date-pill" @click="setQuickDate(createForm, 1)">明天</button>
@@ -486,22 +599,25 @@ function describeRun(run) {
       </div>
     </form>
 
-    <!-- 主玻璃列表容器 -->
-    <div class="book-sheet glass-list-panel">
-      <!-- 顶部分类胶囊轨 -->
+    <!-- 分流导航与全局工具栏 -->
+    <div class="book-sheet toolbar-sheet">
       <div class="panel-toolbar">
         <div class="glass-tabs" role="tablist">
           <button class="glass-tab" :class="{ active: tab === 'pending' }" @click="switchTab('pending')">
-            <span>当前待办</span>
+            <span>分流视图</span>
             <span class="tab-count num">{{ stats.pending }}</span>
+          </button>
+          <button class="glass-tab" :class="{ active: tab === 'required' }" @click="switchTab('required')">
+            <span>⚡ 必做事项</span>
+            <span class="tab-count num" :class="{ 'count-indigo': stats.required > 0 }">{{ stats.required }}</span>
+          </button>
+          <button class="glass-tab" :class="{ active: tab === 'optional' }" @click="switchTab('optional')">
+            <span>普通通知</span>
+            <span class="tab-count num">{{ stats.optional }}</span>
           </button>
           <button class="glass-tab" :class="{ active: tab === 'week' }" @click="switchTab('week')">
             <span>七日内</span>
             <span class="tab-count num">{{ stats.week }}</span>
-          </button>
-          <button class="glass-tab" :class="{ active: tab === 'review' }" @click="switchTab('review')">
-            <span>待确认</span>
-            <span class="tab-count num" :class="{ 'count-amber': stats.review > 0 }">{{ stats.review }}</span>
           </button>
           <button class="glass-tab" :class="{ active: tab === 'done' }" @click="switchTab('done')">
             <span>已完成</span>
@@ -518,7 +634,7 @@ function describeRun(run) {
         </div>
       </div>
 
-      <!-- 顶部多选批量操作栏 -->
+      <!-- 多选批量操作栏 -->
       <div v-if="selectedIds.size > 0" class="selection-bar">
         <div class="sel-left">
           <button class="select-circle checked" @click="toggleSelectAllVisible" title="全选 / 取消全选当页">✓</button>
@@ -535,6 +651,22 @@ function describeRun(run) {
             @click="batchChangeStatus('done', '标记为已完成')"
           >
             ✓ 标记完成
+          </button>
+          <button
+            v-if="tab === 'pending' || tab === 'optional'"
+            class="btn btn-secondary btn-sm"
+            :disabled="busy"
+            @click="batchChangeObligation('required')"
+          >
+            ⚡ 设为必做
+          </button>
+          <button
+            v-if="tab === 'pending' || tab === 'required'"
+            class="btn btn-secondary btn-sm"
+            :disabled="busy"
+            @click="batchChangeObligation('optional')"
+          >
+            转为通知
           </button>
           <button
             v-if="tab !== 'cancelled'"
@@ -570,7 +702,7 @@ function describeRun(run) {
       <div v-if="!state.model?.configured" class="status-strip">
         <span class="badge badge-ochre">未配 AI</span>
         <span class="muted">
-          {{ state.pendingCount ? `已有 ${state.pendingCount} 条消息待分析。` : '配置 AI 模型后，群通知将自动提取成待办。' }}
+          {{ state.pendingCount ? `已有 ${state.pendingCount} 条消息待分析。` : '配置 AI 模型后，群通知将自动分流为「必做事项」与「普通通知」。' }}
         </span>
         <button class="btn-link" @click="$emit('navigate', 'settings')">前往配置</button>
       </div>
@@ -604,231 +736,309 @@ function describeRun(run) {
           <span class="muted">{{ describeRun(run) }}</span>
         </div>
       </div>
+    </div>
 
-      <!-- 任务列表 -->
-      <div v-if="visibleTasks.length" class="entries">
-        <div
-          v-for="task in visibleTasks"
-          :key="task.id"
-          class="entry-block"
-          :class="[
-            `state-${formatDue(task).state}`,
-            {
-              'is-selected': selectedIds.has(task.id),
-              'is-expanded': expandedId === task.id,
-              'is-done': task.status === 'done' || task.status === 'cancelled',
-              'is-overdue': formatDue(task).state === 'overdue' && tab !== 'stale'
-            }
-          ]"
-        >
-          <div class="entry-row">
-            <div class="entry-left">
-              <!-- 唯一的前置圆圈：只用于多选，绝不直接让任务消失 -->
-              <button
-                type="button"
-                class="select-circle"
-                :class="{ checked: selectedIds.has(task.id) }"
-                :aria-label="`选择 ${task.title}`"
-                title="点击选择（支持多选批量完成、忽略或删除）"
-                @click.stop="toggleSelect(task.id)"
-              >
-                <span v-if="selectedIds.has(task.id)">✓</span>
-              </button>
-
-              <div class="entry-body" @click="toggleExpand(task)">
-                <div class="entry-title-row">
-                  <span class="entry-title">{{ task.title }}</span>
-                  <span v-if="formatDue(task).state === 'overdue' && tab !== 'stale'" class="badge badge-seal">逾期</span>
-                  <span v-else-if="formatDue(task).state === 'today'" class="badge badge-ochre">今日</span>
-                  <span v-if="tab === 'stale'" class="badge">历史补拉</span>
-                  <span v-else-if="task.needsReview && task.status === 'pending'" class="badge badge-ochre">待确认</span>
-                  <span v-if="task.relevance === 'unclear'" class="badge">{{ relevanceLabel(task.relevance) }}</span>
-                  <span v-if="task.suggestedStatus === 'done' && task.status === 'pending'" class="badge badge-pine">建议完成</span>
-                </div>
-
-                <div class="entry-meta">
-                  <span class="source-chip">
-                    <span
-                      v-if="convPlatform(task)"
-                      class="plat-tag"
-                      :class="convPlatform(task) === 'wechat' ? 'plat-wx' : 'plat-qq'"
-                    >
-                      {{ convPlatform(task) === 'wechat' ? '微信' : 'QQ' }}
-                    </span>
-                    <span v-else class="plat-tag plat-manual">手记</span>
-                    <span class="source-name">{{ convTitle(task) }}</span>
-                  </span>
-                  <span v-if="task.sourceAt" class="muted">· {{ formatTime(task.sourceAt) }}</span>
-                  <span v-if="task.description" class="entry-desc muted">· {{ task.description }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="entry-right">
-              <div class="due-chip" :class="`chip-${formatDue(task).state}`" @click="toggleExpand(task)">
-                <span class="due-main num" :class="`due-${formatDue(task).state}`" :title="formatDue(task).text">
-                  {{ formatDue(task).text }}
-                </span>
-                <span class="due-sub muted">
-                  {{ formatDue(task).tag ? `${formatDue(task).tag} · ` : '' }}{{ formatDue(task).basisLabel }}
+    <!-- 分流主列表区：默认「上方必做事项焦点卡」 + 「下方普通通知次级卡」 -->
+    <div class="sections-stack">
+      <div
+        v-for="section in displaySections"
+        :key="section.key"
+        class="book-sheet glass-list-panel"
+        :class="[
+          section.kind === 'required' ? 'panel-required' : '',
+          section.kind === 'optional' ? 'panel-optional' : ''
+        ]"
+      >
+        <!-- 分区抬头（分流视图下清晰标明「必做事项」与「普通通知」） -->
+        <div v-if="section.title" class="section-banner">
+          <div class="section-banner-left">
+            <span v-if="section.kind === 'required'" class="sec-icon sec-icon-req" aria-hidden="true">⚡</span>
+            <span v-else class="sec-icon sec-icon-opt" aria-hidden="true">📌</span>
+            <div>
+              <div class="section-title-row">
+                <h2 class="section-title">{{ section.title }}</h2>
+                <span class="sec-count num" :class="section.kind === 'required' ? 'sec-count-req' : ''">
+                  {{ section.items.length }}
                 </span>
               </div>
-
-              <div class="row-actions">
-                <template v-if="task.status === 'pending'">
-                  <button
-                    class="row-btn row-btn-done"
-                    :disabled="busy"
-                    title="标记为已完成"
-                    @click.stop="applyStatusToTasks([task], 'done', '标记为已完成')"
-                  >
-                    ✓ 完成
-                  </button>
-                  <button
-                    class="row-btn row-btn-ignore"
-                    :disabled="busy"
-                    title="忽略 / 不参加"
-                    @click.stop="applyStatusToTasks([task], 'cancelled', '移入已忽略')"
-                  >
-                    忽略 ×
-                  </button>
-                </template>
-                <template v-else>
-                  <button
-                    class="row-btn"
-                    :disabled="busy"
-                    @click.stop="applyStatusToTasks([task], 'pending', '恢复为待办')"
-                  >
-                    ↶ 恢复待办
-                  </button>
-                </template>
-                <button
-                  class="row-btn row-btn-expand"
-                  :class="{ active: expandedId === task.id }"
-                  title="展开来源群原话与快捷改期"
-                  @click.stop="toggleExpand(task)"
-                >
-                  {{ expandedId === task.id ? '收起 ▴' : '原话 ▾' }}
-                </button>
-              </div>
+              <p class="section-sub">{{ section.subtitle }}</p>
             </div>
           </div>
 
-          <!-- 原地内联玻璃详情抽屉 -->
-          <div v-if="expandedId === task.id && detailCache[task.id]" class="inline-drawer">
-            <div class="drawer-grid">
-              <!-- 左栏：群通知来源原话 -->
-              <div class="drawer-col">
-                <div class="drawer-col-head">
-                  <h3 class="drawer-col-title">来源群原话</h3>
+          <div class="section-banner-right">
+            <button
+              v-if="section.kind === 'optional' && section.items.length"
+              class="btn btn-ghost btn-sm"
+              :disabled="busy"
+              @click="applyStatusToTasks(section.items, 'cancelled', '普通通知批量忽略')"
+            >
+              一键忽略本区
+            </button>
+            <button
+              v-if="section.collapsible"
+              class="btn btn-secondary btn-sm"
+              @click="optionalCollapsed = !optionalCollapsed"
+            >
+              {{ optionalCollapsed ? `展开 (${section.items.length})` : '收起' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 条目列表 -->
+        <template v-if="!(section.collapsible && optionalCollapsed)">
+          <div v-if="section.items.length" class="entries">
+            <div
+              v-for="task in section.items"
+              :key="task.id"
+              class="entry-block"
+              :class="[
+                `state-${formatDue(task).state}`,
+                isRequired(task) ? 'ob-required' : 'ob-optional',
+                {
+                  'is-selected': selectedIds.has(task.id),
+                  'is-expanded': expandedId === task.id,
+                  'is-done': task.status === 'done' || task.status === 'cancelled',
+                  'is-overdue': formatDue(task).state === 'overdue' && tab !== 'stale'
+                }
+              ]"
+            >
+              <div class="entry-row">
+                <div class="entry-left">
                   <button
-                    v-if="task.conversationId"
                     type="button"
-                    class="btn-link"
-                    @click="$emit('open-messages', task.conversationId)"
+                    class="select-circle"
+                    :class="{ checked: selectedIds.has(task.id) }"
+                    :aria-label="`选择 ${task.title}`"
+                    title="点击选择（支持多选批量完成、分流、忽略或删除）"
+                    @click.stop="toggleSelect(task.id)"
                   >
-                    去该群看上下文 ↗
+                    <span v-if="selectedIds.has(task.id)">✓</span>
                   </button>
-                </div>
 
-                <div v-if="detailCache[task.id].loading" class="muted drawer-note">正在读取原话…</div>
-                <div v-else-if="!detailCache[task.id].sources.length" class="muted drawer-note">
-                  这是手动记录的待办，没有关联群消息。
-                </div>
-                <div v-else class="inline-sources">
-                  <div v-for="msg in detailCache[task.id].sources" :key="msg.id" class="inline-source-card">
-                    <div class="inline-source-meta">
-                      <span class="sender-badge">
-                        <span class="sender-avatar">{{ monogramChar(msg.senderName) }}</span>
-                        <strong>{{ msg.senderName }}</strong>
-                      </span>
-                      <time class="num muted">{{ formatTime(msg.sentAt, true) }}</time>
+                  <div class="entry-body" @click="toggleExpand(task)">
+                    <div class="entry-title-row">
+                      <span v-if="isRequired(task) && task.status === 'pending'" class="ob-pill ob-pill-req">必做</span>
+                      <span v-else-if="task.status === 'pending'" class="ob-pill ob-pill-opt">通知</span>
+                      <span class="entry-title">{{ task.title }}</span>
+                      <span v-if="formatDue(task).state === 'overdue' && tab !== 'stale'" class="badge badge-seal">逾期</span>
+                      <span v-else-if="formatDue(task).state === 'today'" class="badge badge-ochre">今日</span>
+                      <span v-if="tab === 'stale'" class="badge">历史补拉</span>
+                      <span v-else-if="task.needsReview && task.status === 'pending'" class="badge badge-ochre">待确认</span>
+                      <span v-if="task.relevance === 'unclear'" class="badge">{{ relevanceLabel(task.relevance) }}</span>
+                      <span v-if="task.suggestedStatus === 'done' && task.status === 'pending'" class="badge badge-pine">建议完成</span>
                     </div>
-                    <p class="inline-source-text">{{ msg.content }}</p>
+
+                    <div class="entry-meta">
+                      <span class="source-chip">
+                        <span
+                          v-if="convPlatform(task)"
+                          class="plat-tag"
+                          :class="convPlatform(task) === 'wechat' ? 'plat-wx' : 'plat-qq'"
+                        >
+                          {{ convPlatform(task) === 'wechat' ? '微信' : 'QQ' }}
+                        </span>
+                        <span v-else class="plat-tag plat-manual">手记</span>
+                        <span class="source-name">{{ convTitle(task) }}</span>
+                      </span>
+                      <span v-if="task.sourceAt" class="muted">· {{ formatTime(task.sourceAt) }}</span>
+                      <span v-if="task.description" class="entry-desc muted">· {{ task.description }}</span>
+                    </div>
                   </div>
                 </div>
 
-                <div v-if="detailCache[task.id].questions?.length" class="inline-questions">
-                  <span class="q-label">待核实：</span>
-                  <span>{{ detailCache[task.id].questions.join('；') }}</span>
+                <div class="entry-right">
+                  <div class="due-chip" :class="`chip-${formatDue(task).state}`" @click="toggleExpand(task)">
+                    <span class="due-main num" :class="`due-${formatDue(task).state}`" :title="formatDue(task).text">
+                      {{ formatDue(task).text }}
+                    </span>
+                    <span class="due-sub muted">
+                      {{ formatDue(task).tag ? `${formatDue(task).tag} · ` : '' }}{{ formatDue(task).basisLabel }}
+                    </span>
+                  </div>
+
+                  <div class="row-actions">
+                    <template v-if="task.status === 'pending'">
+                      <button
+                        v-if="!isRequired(task)"
+                        class="row-btn row-btn-promote"
+                        :disabled="busy"
+                        title="提升为必做事项"
+                        @click.stop="setObligation([task], 'required')"
+                      >
+                        ↑ 必做
+                      </button>
+                      <button
+                        v-else
+                        class="row-btn row-btn-demote"
+                        :disabled="busy"
+                        title="这不是硬性必做，降为普通通知"
+                        @click.stop="setObligation([task], 'optional')"
+                      >
+                        ↓ 通知
+                      </button>
+                      <button
+                        class="row-btn row-btn-done"
+                        :disabled="busy"
+                        title="标记为已完成"
+                        @click.stop="applyStatusToTasks([task], 'done', '标记为已完成')"
+                      >
+                        ✓ 完成
+                      </button>
+                      <button
+                        class="row-btn row-btn-ignore"
+                        :disabled="busy"
+                        title="忽略 / 不参加"
+                        @click.stop="applyStatusToTasks([task], 'cancelled', '移入已忽略')"
+                      >
+                        忽略 ×
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button
+                        class="row-btn"
+                        :disabled="busy"
+                        @click.stop="applyStatusToTasks([task], 'pending', '恢复为待办')"
+                      >
+                        ↶ 恢复待办
+                      </button>
+                    </template>
+                    <button
+                      class="row-btn row-btn-expand"
+                      :class="{ active: expandedId === task.id }"
+                      title="展开来源群原话与快捷改期"
+                      @click.stop="toggleExpand(task)"
+                    >
+                      {{ expandedId === task.id ? '收起 ▴' : '原话 ▾' }}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <!-- 右栏：快捷改期与内容微调 -->
-              <form class="drawer-col drawer-edit" @submit.prevent="saveInlineEdit(task)">
-                <div class="drawer-col-head">
-                  <h3 class="drawer-col-title">快捷改期与微调</h3>
-                  <div class="quick-date-row">
-                    <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 0)">今天</button>
-                    <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 1)">明天</button>
-                    <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 3)">3天后</button>
-                    <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 7)">下周</button>
-                    <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, null)">无截止</button>
+              <!-- 原地内联玻璃详情抽屉 -->
+              <div v-if="expandedId === task.id && detailCache[task.id]" class="inline-drawer">
+                <div class="drawer-grid">
+                  <div class="drawer-col">
+                    <div class="drawer-col-head">
+                      <h3 class="drawer-col-title">来源群原话</h3>
+                      <button
+                        v-if="task.conversationId"
+                        type="button"
+                        class="btn-link"
+                        @click="$emit('open-messages', task.conversationId)"
+                      >
+                        去该群看上下文 ↗
+                      </button>
+                    </div>
+
+                    <div v-if="detailCache[task.id].loading" class="muted drawer-note">正在读取原话…</div>
+                    <div v-else-if="!detailCache[task.id].sources.length" class="muted drawer-note">
+                      这是手动记录的待办，没有关联群消息。
+                    </div>
+                    <div v-else class="inline-sources">
+                      <div v-for="msg in detailCache[task.id].sources" :key="msg.id" class="inline-source-card">
+                        <div class="inline-source-meta">
+                          <span class="sender-badge">
+                            <span class="sender-avatar">{{ monogramChar(msg.senderName) }}</span>
+                            <strong>{{ msg.senderName }}</strong>
+                          </span>
+                          <time class="num muted">{{ formatTime(msg.sentAt, true) }}</time>
+                        </div>
+                        <p class="inline-source-text">{{ msg.content }}</p>
+                      </div>
+                    </div>
+
+                    <div v-if="detailCache[task.id].questions?.length" class="inline-questions">
+                      <span class="q-label">待核实：</span>
+                      <span>{{ detailCache[task.id].questions.join('；') }}</span>
+                    </div>
                   </div>
+
+                  <form class="drawer-col drawer-edit" @submit.prevent="saveInlineEdit(task)">
+                    <div class="drawer-col-head">
+                      <h3 class="drawer-col-title">快捷改期与分流微调</h3>
+                      <div class="quick-date-row">
+                        <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 0)">今天</button>
+                        <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 1)">明天</button>
+                        <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 3)">3天后</button>
+                        <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, 7)">下周</button>
+                        <button type="button" class="mini-date-pill" @click="setQuickDate(detailCache[task.id].form, null)">无截止</button>
+                      </div>
+                    </div>
+
+                    <input v-model="detailCache[task.id].form.title" class="input" maxlength="180" required placeholder="事项标题" />
+
+                    <div class="inline-edit-row">
+                      <input v-model="detailCache[task.id].form.dueDate" type="date" class="input" />
+                      <input v-model="detailCache[task.id].form.dueTime" type="time" class="input" />
+                      <select v-model="detailCache[task.id].form.obligation" class="select">
+                        <option value="required">⚡ 必做事项</option>
+                        <option value="optional">📌 普通通知</option>
+                      </select>
+                      <select v-model="detailCache[task.id].form.relevance" class="select">
+                        <option value="mine">与我有关</option>
+                        <option value="everyone">全体适用</option>
+                        <option value="unclear">归属待确认</option>
+                        <option value="other">属于他人</option>
+                      </select>
+                    </div>
+
+                    <textarea
+                      v-model="detailCache[task.id].form.description"
+                      class="textarea"
+                      rows="2"
+                      maxlength="2000"
+                      placeholder="补充要求、地点或备注…"
+                    ></textarea>
+
+                    <div class="inline-edit-actions">
+                      <button type="button" class="btn btn-danger btn-sm" :disabled="busy" @click="deleteSingleTask(task)">
+                        删除此条
+                      </button>
+                      <div class="inline-edit-right">
+                        <button type="button" class="btn btn-secondary btn-sm" @click="expandedId = ''">收起</button>
+                        <button type="submit" class="btn btn-primary btn-sm" :disabled="busy">保存修改</button>
+                      </div>
+                    </div>
+                  </form>
                 </div>
-
-                <input v-model="detailCache[task.id].form.title" class="input" maxlength="180" required placeholder="事项标题" />
-
-                <div class="inline-edit-row">
-                  <input v-model="detailCache[task.id].form.dueDate" type="date" class="input" />
-                  <input v-model="detailCache[task.id].form.dueTime" type="time" class="input" />
-                  <select v-model="detailCache[task.id].form.relevance" class="select">
-                    <option value="mine">与我有关</option>
-                    <option value="everyone">全体适用</option>
-                    <option value="unclear">归属待确认</option>
-                    <option value="other">属于他人</option>
-                  </select>
-                </div>
-
-                <textarea
-                  v-model="detailCache[task.id].form.description"
-                  class="textarea"
-                  rows="2"
-                  maxlength="2000"
-                  placeholder="补充要求、地点或备注…"
-                ></textarea>
-
-                <div class="inline-edit-actions">
-                  <button type="button" class="btn btn-danger btn-sm" :disabled="busy" @click="deleteSingleTask(task)">
-                    删除此条
-                  </button>
-                  <div class="inline-edit-right">
-                    <button type="button" class="btn btn-secondary btn-sm" @click="expandedId = ''">收起</button>
-                    <button type="submit" class="btn btn-primary btn-sm" :disabled="busy">保存修改</button>
-                  </div>
-                </div>
-              </form>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 极简玻璃空态 -->
-      <div v-else class="empty-state">
-        <div class="empty-mark">✦</div>
-        <h2 class="empty-title">
-          {{
-            query ? '没有匹配的事项'
-            : tab === 'done' ? '暂无已完成事项'
-            : tab === 'cancelled' ? '暂无已忽略的通知'
-            : tab === 'stale' ? '没有积压的历史旧通知'
-            : '当前一切井然有序，没有待办事项'
-          }}
-        </h2>
-        <p class="empty-desc">
-          {{
-            query ? '可以尝试更换关键词，或切换上方标签页查看。'
-            : tab === 'pending' && stats.stale > 0
-              ? `系统已自动收纳 ${stats.stale} 条 7 天前的历史补拉旧通知，保持今日列表专注清爽。`
-              : '已关注的 QQ 与微信群收到新通知后会自动摘录到这里，你也可以随时手动新建一条。'
-          }}
-        </p>
-        <div class="empty-actions">
-          <button v-if="!query && tab === 'pending'" class="btn btn-primary" @click="showQuickCreate = true">＋ 新建一条待办</button>
-          <button v-if="tab === 'pending' && stats.stale > 0" class="btn btn-secondary" @click="switchTab('stale')">
-            查看 {{ stats.stale }} 条历史旧通知
-          </button>
-        </div>
+          <!-- 分区空态 -->
+          <div v-else-if="section.title" class="section-empty">
+            <span class="sec-empty-icon">{{ section.kind === 'required' ? '✓' : '—' }}</span>
+            <span>{{ section.emptyText }}</span>
+          </div>
+
+          <!-- 单列表视图空态 -->
+          <div v-else class="empty-state">
+            <div class="empty-mark">✦</div>
+            <h2 class="empty-title">
+              {{
+                query ? '没有匹配的事项'
+                : tab === 'required' ? '当前没有必须完成的硬性事项'
+                : tab === 'optional' ? '当前没有额外的普通通知'
+                : tab === 'done' ? '暂无已完成事项'
+                : tab === 'cancelled' ? '暂无已忽略的通知'
+                : tab === 'stale' ? '没有积压的历史旧通知'
+                : '当前一切井然有序'
+              }}
+            </h2>
+            <p class="empty-desc">
+              {{
+                query ? '可以尝试更换关键词，或切换上方标签页查看。'
+                : '已关注的 QQ 与微信群收到新通知后会自动分流为「必做事项」与「普通通知」。'
+              }}
+            </p>
+            <div class="empty-actions">
+              <button v-if="!query && (tab === 'required' || tab === 'pending')" class="btn btn-primary" @click="showQuickCreate = true">＋ 新建一条必做</button>
+              <button v-if="stats.stale > 0 && tab !== 'stale'" class="btn btn-secondary" @click="switchTab('stale')">
+                查看 {{ stats.stale }} 条历史旧通知
+              </button>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -881,10 +1091,9 @@ function describeRun(run) {
 .obsidian-workspace {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
-/* 顶部指令标题区 */
 .ws-header {
   display: flex;
   align-items: flex-end;
@@ -932,10 +1141,8 @@ function describeRun(run) {
   color: transparent;
 }
 
-.ws-subtitle {
-  font-size: 13px;
-  color: var(--ink-3);
-}
+.ws-subtitle { font-size: 13px; color: var(--ink-3); }
+.text-indigo { color: #a5b4fc; }
 
 .ws-actions {
   display: flex;
@@ -965,10 +1172,9 @@ function describeRun(run) {
 .bare-input::placeholder { color: var(--ink-3); }
 .clear-x { font-size: 15px; color: var(--ink-3); padding: 0 3px; }
 .clear-x:hover { color: #fff; }
-
 .create-btn { padding: 8px 16px; font-size: 13.5px; }
 
-/* 四联液态玻璃 Bento 看板 */
+/* 四联 Bento 看板 */
 .bento-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1010,77 +1216,35 @@ function describeRun(run) {
 .bento-emerald::after { background: #10b981; }
 .bento-rose::after { background: #f43f5e; }
 
-.bento-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.18);
-}
+.bento-card:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, 0.18); }
 .bento-card:hover::after { opacity: 0.55; }
-
 .bento-card.active {
-  border-color: rgba(129, 140, 248, 0.5);
-  box-shadow: 0 14px 32px -12px rgba(99, 102, 241, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  border-color: rgba(129, 140, 248, 0.52);
+  box-shadow: 0 14px 32px -12px rgba(99, 102, 241, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
-.bento-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.bento-label {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--ink-2);
-}
-
-.bento-icon-wrap {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
+.bento-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bento-label { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.bento-icon-wrap { width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
 .bento-icon-wrap svg { width: 15px; height: 15px; }
-.icon-indigo { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; border: 1px solid rgba(129, 140, 248, 0.3); }
-.icon-cyan { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.3); }
-.icon-amber { background: rgba(245, 158, 11, 0.18); color: #fcd34d; border: 1px solid rgba(251, 191, 36, 0.3); }
-.icon-emerald { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.3); }
-.icon-rose { background: rgba(244, 63, 94, 0.18); color: #fda4af; border: 1px solid rgba(251, 113, 133, 0.3); }
+.icon-indigo { background: rgba(99, 102, 241, 0.18); color: #a5b4fc; border: 1px solid rgba(129, 140, 248, 0.32); }
+.icon-cyan { background: rgba(14, 165, 233, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.32); }
+.icon-amber { background: rgba(245, 158, 11, 0.18); color: #fcd34d; border: 1px solid rgba(251, 191, 36, 0.32); }
+.icon-emerald { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.32); }
+.icon-rose { background: rgba(244, 63, 94, 0.18); color: #fda4af; border: 1px solid rgba(251, 113, 133, 0.32); }
 
-.bento-value {
-  font-size: 32px;
-  font-weight: 700;
-  line-height: 1.05;
-  color: #ffffff;
-  letter-spacing: -0.02em;
-}
-
-.bento-foot {
-  font-size: 11.5px;
-  color: var(--ink-3);
-}
+.bento-value { font-size: 32px; font-weight: 700; line-height: 1.05; color: #ffffff; letter-spacing: -0.02em; }
+.bento-foot { font-size: 11.5px; color: var(--ink-3); }
 
 /* 内联新建栏 */
-.quick-create-box {
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.qc-top, .qc-bottom {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.qc-title-input { flex: 2; min-width: 220px; }
+.quick-create-box { padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+.qc-top, .qc-bottom { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qc-title-input { flex: 2; min-width: 200px; }
+.qc-ob-select { width: 132px; flex-shrink: 0; }
 .qc-desc-input { flex: 1; min-width: 200px; }
 .qc-date-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.qc-date-input { width: 142px; padding: 6px 9px; }
-.qc-time-input { width: 112px; padding: 6px 9px; }
+.qc-date-input { width: 140px; padding: 6px 9px; }
+.qc-time-input { width: 110px; padding: 6px 9px; }
 .qc-actions { display: flex; gap: 6px; margin-left: auto; }
 
 .mini-date-pill {
@@ -1093,35 +1257,22 @@ function describeRun(run) {
   white-space: nowrap;
   transition: all 0.14s;
 }
-.mini-date-pill:hover {
-  border-color: var(--pine-border);
-  background: var(--pine-wash);
-  color: #c7d2fe;
-}
+.mini-date-pill:hover { border-color: var(--pine-border); background: var(--pine-wash); color: #c7d2fe; }
 
-/* 主列表玻璃板 */
-.glass-list-panel {
-  overflow: hidden;
-}
-
+/* 顶部工具条玻璃容器 */
+.toolbar-sheet { overflow: hidden; }
 .panel-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 18px;
+  padding: 11px 18px;
   border-bottom: 1px solid var(--hairline);
   background: rgba(255, 255, 255, 0.02);
   flex-wrap: wrap;
 }
 
-.glass-tabs {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
+.glass-tabs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .glass-tab {
   display: inline-flex;
   align-items: center;
@@ -1149,30 +1300,22 @@ function describeRun(run) {
   background: rgba(255, 255, 255, 0.08);
   color: var(--ink-2);
 }
-.glass-tab.active .tab-count {
-  background: #6366f1;
-  color: #ffffff;
-}
-.tab-count.count-amber {
-  background: var(--ochre-wash);
-  color: var(--ochre);
-}
+.glass-tab.active .tab-count { background: #6366f1; color: #ffffff; }
+.tab-count.count-indigo { background: rgba(99, 102, 241, 0.26); color: #c7d2fe; }
 
-/* 多选批量栏 */
 .selection-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 10px 20px;
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.22) 0%, rgba(56, 189, 248, 0.12) 100%);
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.24) 0%, rgba(56, 189, 248, 0.12) 100%);
   border-bottom: 1px solid var(--pine-border);
   font-size: 13px;
   flex-wrap: wrap;
 }
 .sel-left, .sel-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-/* 撤销提示条 */
 .undo-bar {
   display: flex;
   align-items: center;
@@ -1186,7 +1329,6 @@ function describeRun(run) {
 }
 .undo-actions { display: flex; align-items: center; gap: 10px; }
 
-/* AI 状态副条 */
 .status-strip {
   display: flex;
   align-items: center;
@@ -1195,7 +1337,6 @@ function describeRun(run) {
   padding: 8px 20px;
   font-size: 12px;
   background: rgba(0, 0, 0, 0.22);
-  border-bottom: 1px solid var(--hairline);
 }
 
 .select-all-link {
@@ -1239,7 +1380,7 @@ function describeRun(run) {
 
 .run-history {
   padding: 8px 20px 10px;
-  border-bottom: 1px solid var(--hairline);
+  border-top: 1px solid var(--hairline);
   background: rgba(0, 0, 0, 0.28);
   display: flex;
   flex-direction: column;
@@ -1247,6 +1388,112 @@ function describeRun(run) {
   font-size: 12px;
 }
 .run-hist-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 分流双卡堆叠：上方「必做事项」高亮主卡 + 下方「普通通知」静谧次卡 */
+.sections-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.glass-list-panel { overflow: hidden; }
+
+.panel-required {
+  border-color: rgba(129, 140, 248, 0.38);
+  border-top: 2px solid #818cf8;
+  box-shadow: 0 20px 48px -18px rgba(99, 102, 241, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.panel-optional {
+  background: linear-gradient(180deg, rgba(16, 20, 31, 0.56) 0%, rgba(11, 14, 22, 0.68) 100%);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.section-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.025);
+  flex-wrap: wrap;
+}
+.panel-required .section-banner {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.14) 0%, rgba(99, 102, 241, 0.02) 70%);
+}
+
+.section-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sec-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.sec-icon-req {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35) 0%, rgba(56, 189, 248, 0.22) 100%);
+  border: 1px solid rgba(129, 140, 248, 0.45);
+  color: #e0e7ff;
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.35);
+}
+.sec-icon-opt {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink-2);
+}
+
+.section-title-row { display: flex; align-items: center; gap: 8px; }
+.section-title { font-size: 15.5px; font-weight: 700; color: #f8fafc; line-height: 1.25; }
+.panel-optional .section-title { color: #cbd5e1; font-weight: 600; }
+.section-sub { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+.sec-count {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink-2);
+}
+.sec-count-req {
+  background: #6366f1;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.55);
+}
+
+.section-banner-right { display: flex; align-items: center; gap: 8px; }
+
+.section-empty {
+  padding: 24px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.sec-empty-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--wx-wash);
+  border: 1px solid var(--wx-border);
+  color: var(--wx);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
 
 /* 任务条目 */
 .entries { display: flex; flex-direction: column; }
@@ -1267,8 +1514,8 @@ function describeRun(run) {
   width: 3px;
   border-radius: 0 3px 3px 0;
   background: transparent;
-  transition: background 0.16s;
 }
+.entry-block.ob-required::before { background: rgba(129, 140, 248, 0.55); }
 .entry-block.state-overdue::before { background: #fb7185; box-shadow: 0 0 10px rgba(251, 113, 133, 0.7); }
 .entry-block.state-today::before { background: #fbbf24; box-shadow: 0 0 10px rgba(251, 191, 36, 0.65); }
 .entry-block.state-soon::before { background: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.55); }
@@ -1282,19 +1529,12 @@ function describeRun(run) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 15px 20px;
+  padding: 14px 20px;
 }
 .entry-row:hover { background: rgba(255, 255, 255, 0.035); }
 
-.entry-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  min-width: 0;
-  flex: 1;
-}
+.entry-left { display: flex; align-items: flex-start; gap: 13px; min-width: 0; flex: 1; }
 
-/* 前置多选琉璃圆圈 */
 .select-circle {
   margin-top: 2px;
   width: 20px;
@@ -1311,86 +1551,53 @@ function describeRun(run) {
   flex-shrink: 0;
   transition: all 0.15s var(--ease);
 }
-.select-circle:hover {
-  border-color: #818cf8;
-  background: rgba(99, 102, 241, 0.18);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+.select-circle:hover { border-color: #818cf8; background: rgba(99, 102, 241, 0.18); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+.select-circle.checked { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-color: #a5b4fc; box-shadow: 0 0 12px rgba(99, 102, 241, 0.6); }
+
+.entry-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
+.entry-title-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+
+.ob-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  line-height: 1.4;
 }
-.select-circle.checked {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  border-color: #a5b4fc;
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.6);
+.ob-pill-req {
+  background: rgba(99, 102, 241, 0.24);
+  border: 1px solid rgba(129, 140, 248, 0.45);
+  color: #c7d2fe;
+}
+.ob-pill-opt {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink-2);
 }
 
-.entry-body {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.entry-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.entry-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #f8fafc;
-  line-height: 1.45;
-}
+.entry-title { font-size: 15px; font-weight: 600; color: #f8fafc; line-height: 1.45; }
+.ob-optional .entry-title { color: #cbd5e1; font-weight: 500; }
 .entry-body:hover .entry-title { color: #a5b4fc; }
 .is-done .entry-title { color: var(--ink-3); text-decoration: line-through; font-weight: 400; }
 
-.entry-meta {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12.5px;
-  color: var(--ink-2);
-  flex-wrap: wrap;
-}
-
+.entry-meta { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); flex-wrap: wrap; }
 .source-chip { display: inline-flex; align-items: center; gap: 6px; }
-
-.plat-tag {
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  line-height: 1.35;
-}
+.plat-tag { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 4px; line-height: 1.35; }
 .plat-wx { background: var(--wx-wash); color: var(--wx); border: 1px solid var(--wx-border); }
 .plat-qq { background: var(--qq-wash); color: var(--qq); border: 1px solid var(--qq-border); }
 .plat-manual { background: rgba(255, 255, 255, 0.06); color: var(--ink-2); border: 1px solid var(--hairline-strong); }
 .source-name { color: #cbd5e1; font-weight: 500; }
+.entry-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
 
-.entry-desc {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 300px;
-}
+.entry-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
-.entry-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-/* 截止时间玻璃牌 */
 .due-chip {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 1px;
-  padding: 5px 11px;
+  padding: 5px 10px;
   border-radius: 8px;
   border: 1px solid var(--hairline);
   background: rgba(0, 0, 0, 0.25);
@@ -1402,30 +1609,17 @@ function describeRun(run) {
 .due-chip.chip-overdue { border-color: var(--seal-border); background: var(--seal-wash); }
 .due-chip.chip-today { border-color: var(--ochre-border); background: var(--ochre-wash); }
 
-.due-main {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #e2e8f0;
-  white-space: nowrap;
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.due-main { font-size: 12.5px; font-weight: 600; color: #e2e8f0; white-space: nowrap; max-width: 175px; overflow: hidden; text-overflow: ellipsis; }
 .due-overdue { color: #fda4af; }
 .due-today { color: #fcd34d; }
 .due-soon { color: #7dd3fc; }
 .due-unknown { color: var(--ink-2); font-weight: 500; }
 .due-sub { font-size: 11px; white-space: nowrap; }
 
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
+.row-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 
 .row-btn {
-  padding: 5px 10px;
+  padding: 5px 9px;
   border-radius: 7px;
   font-size: 12px;
   font-weight: 500;
@@ -1436,66 +1630,22 @@ function describeRun(run) {
   transition: all 0.14s var(--ease);
 }
 .row-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); color: #fff; }
-.row-btn-done:hover:not(:disabled) {
-  background: var(--wx-wash);
-  border-color: var(--wx-border);
-  color: var(--wx);
-}
-.row-btn-ignore:hover:not(:disabled) {
-  background: var(--seal-wash);
-  border-color: var(--seal-border);
-  color: var(--seal);
-}
-.row-btn-expand.active {
-  background: var(--pine-hi);
-  border-color: var(--pine);
-  color: #ffffff;
-}
+.row-btn-promote:hover:not(:disabled) { background: var(--pine-wash); border-color: var(--pine-border); color: #c7d2fe; }
+.row-btn-demote { color: var(--ink-3); border-color: var(--hairline); }
+.row-btn-demote:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: #e2e8f0; }
+.row-btn-done:hover:not(:disabled) { background: var(--wx-wash); border-color: var(--wx-border); color: var(--wx); }
+.row-btn-ignore:hover:not(:disabled) { background: var(--seal-wash); border-color: var(--seal-border); color: var(--seal); }
+.row-btn-expand.active { background: var(--pine-hi); border-color: var(--pine); color: #ffffff; }
 
 /* 内联展开抽屉 */
-.inline-drawer {
-  padding: 16px 20px 18px 52px;
-  border-top: 1px solid var(--hairline);
-  background: rgba(6, 9, 15, 0.52);
-}
-
-.drawer-grid {
-  display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 20px;
-}
-
-.drawer-col {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-
-.drawer-col-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.drawer-col-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-
+.inline-drawer { padding: 16px 20px 18px 52px; border-top: 1px solid var(--hairline); background: rgba(6, 9, 15, 0.52); }
+.drawer-grid { display: grid; grid-template-columns: 1.12fr 1fr; gap: 20px; }
+.drawer-col { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.drawer-col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.drawer-col-title { font-size: 14px; font-weight: 600; color: #e2e8f0; }
 .drawer-note { font-size: 12.5px; padding: 8px 0; }
 
-.inline-sources {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 230px;
-  overflow-y: auto;
-}
-
+.inline-sources { display: flex; flex-direction: column; gap: 8px; max-height: 230px; overflow-y: auto; }
 .inline-source-card {
   padding: 11px 13px;
   border-radius: 10px;
@@ -1503,18 +1653,8 @@ function describeRun(run) {
   border: 1px solid var(--hairline);
   border-left: 3px solid #6366f1;
 }
-
-.inline-source-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  margin-bottom: 5px;
-}
-
+.inline-source-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 5px; }
 .sender-badge { display: inline-flex; align-items: center; gap: 7px; color: #e2e8f0; }
-
 .sender-avatar {
   width: 22px;
   height: 22px;
@@ -1528,53 +1668,18 @@ function describeRun(run) {
   align-items: center;
   justify-content: center;
 }
+.inline-source-text { font-size: 13px; line-height: 1.65; color: #cbd5e1; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 
-.inline-source-text {
-  font-size: 13px;
-  line-height: 1.65;
-  color: #cbd5e1;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.inline-questions {
-  font-size: 12px;
-  color: #fde68a;
-  background: var(--ochre-wash);
-  border: 1px solid var(--ochre-border);
-  padding: 7px 10px;
-  border-radius: 8px;
-}
+.inline-questions { font-size: 12px; color: #fde68a; background: var(--ochre-wash); border: 1px solid var(--ochre-border); padding: 7px 10px; border-radius: 8px; }
 .q-label { font-weight: 600; }
 
 .quick-date-row { display: flex; gap: 5px; flex-wrap: wrap; }
-.inline-edit-row { display: grid; grid-template-columns: 1.1fr 0.9fr 1fr; gap: 7px; }
-.inline-edit-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 2px;
-}
+.inline-edit-row { display: grid; grid-template-columns: 1.05fr 0.85fr 0.95fr 0.95fr; gap: 7px; }
+.inline-edit-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
 .inline-edit-right { display: flex; gap: 6px; }
+.empty-actions { margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
-.empty-actions {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-/* 底部历史收纳栏 */
-.ws-footer {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
+.ws-footer { display: flex; flex-direction: column; gap: 12px; }
 .stale-notice-bar {
   display: flex;
   align-items: center;
@@ -1592,35 +1697,21 @@ function describeRun(run) {
 .stale-actions { display: flex; gap: 14px; }
 
 .other-wrap { display: flex; flex-direction: column; gap: 8px; }
-.other-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--ink-3);
-  align-self: flex-start;
-}
+.other-trigger { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-3); align-self: flex-start; }
 .other-trigger:hover { color: var(--pine); }
 .other-box { overflow: hidden; }
 
-@media (max-width: 980px) {
+@media (max-width: 1020px) {
   .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inline-edit-row { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 780px) {
   .ws-title { font-size: 24px; }
-  .glass-search { width: 100%; }
-  .entry-row {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 13px 14px;
-    gap: 8px;
-  }
-  .entry-right {
-    justify-content: space-between;
-    padding-left: 33px;
-    flex-wrap: wrap;
-  }
+  .ws-actions { width: 100%; }
+  .glass-search { flex: 1; width: auto; }
+  .entry-row { flex-direction: column; align-items: stretch; padding: 13px 14px; gap: 8px; }
+  .entry-right { justify-content: space-between; padding-left: 33px; flex-wrap: wrap; }
   .due-chip { align-items: flex-start; text-align: left; }
   .inline-drawer { padding: 12px 14px; }
   .drawer-grid, .inline-edit-row { grid-template-columns: 1fr; }

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from './api.js';
-import { isStaleHistoricalTask } from './utils/format.js';
+import { isStaleHistoricalTask, inferTaskObligation } from './utils/format.js';
 import AssistantDrawer from './components/AssistantDrawer.vue';
 import TaskDetailModal from './components/TaskDetailModal.vue';
 import ProfileModal from './components/ProfileModal.vue';
@@ -48,8 +48,18 @@ function showToast(text, kind = 'info') {
   }, 3600);
 }
 
-const pendingCount = computed(() =>
-  (state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other' && !isStaleHistoricalTask(t)).length
+const activePendingTasks = computed(() =>
+  (state.value?.tasks || []).filter(t => t.status === 'pending' && t.relevance !== 'other' && !isStaleHistoricalTask(t))
+);
+
+const pendingCount = computed(() => activePendingTasks.value.length);
+
+const requiredPendingCount = computed(() =>
+  activePendingTasks.value.filter(t => inferTaskObligation(t) === 'required').length
+);
+
+const optionalPendingCount = computed(() =>
+  activePendingTasks.value.filter(t => inferTaskObligation(t) === 'optional').length
 );
 
 const monitoredCount = computed(() =>
@@ -170,13 +180,19 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
         <div class="nav-group">
           <div class="nav-group-label">工作空间</div>
           <nav class="nav-list">
-            <button class="nav-item" :class="{ active: view === 'tasks' }" @click="navigate('tasks')">
+            <button
+              class="nav-item"
+              :class="{ active: view === 'tasks' }"
+              :title="`必做事项 ${requiredPendingCount} 项，普通通知 ${optionalPendingCount} 条`"
+              @click="navigate('tasks')"
+            >
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3" y="4" width="18" height="16" rx="3" />
                 <path d="M8 10h8M8 14h5" />
               </svg>
               <span class="nav-label">待办清单</span>
-              <span v-if="pendingCount > 0" class="nav-pill pill-indigo num">{{ pendingCount }}</span>
+              <span v-if="requiredPendingCount > 0" class="nav-pill pill-indigo num" title="必做事项">{{ requiredPendingCount }}</span>
+              <span v-else-if="optionalPendingCount > 0" class="nav-pill num" title="普通通知">{{ optionalPendingCount }}</span>
             </button>
 
             <button class="nav-item" :class="{ active: view === 'messages' }" @click="navigate('messages')">

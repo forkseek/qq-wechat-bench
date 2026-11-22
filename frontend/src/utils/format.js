@@ -8,6 +8,23 @@ export function datePlusDays(days) {
   return new Intl.DateTimeFormat('sv-SE', { timeZone: TZ }).format(new Date(Date.now() + days * 86_400_000));
 }
 
+const REQUIRED_HINT_RE = /(?:作业|实验报告|预习报告|生生互评|互评|实践报告|汇报|答辩|考试|补考|体测|点名|必交|务必|必须|全员|所有人|每位同学|班会|评教|学籍|选课|重修|缓考|提交报告|交报告|交作业)/;
+const OPTIONAL_HINT_RE = /(?:公示|自愿|有兴趣|有意向|表演人员|文艺演出|志愿者|志愿服务|招募|招新|讲座|观影|抢票|选修|社团|大赛报名|比赛报名|鼓励参加|欢迎参加|转发|点赞|抽奖|关注.*报名|了解.*活动)/;
+
+export function inferTaskObligation(task) {
+  if (!task || typeof task !== 'object') return 'required';
+  if (task.obligation === 'required' || task.obligation === 'optional') return task.obligation;
+  if (task.origin === 'manual' || task.dueBasis === 'manual') return 'required';
+  if (task.relevance === 'mine') return 'required';
+  const hay = `${task.title || ''} ${task.description || ''}`;
+  const kind = String(task.kind || '');
+  if (kind === '作业' || kind === '考试') return 'required';
+  if (OPTIONAL_HINT_RE.test(hay) && !REQUIRED_HINT_RE.test(hay)) return 'optional';
+  if (task.relevance === 'unclear' && !REQUIRED_HINT_RE.test(hay)) return 'optional';
+  if (kind === '活动' && !REQUIRED_HINT_RE.test(hay)) return 'optional';
+  return 'required';
+}
+
 export function isStaleHistoricalTask(task) {
   if (!task || task.status !== 'pending') return false;
   if (task.origin === 'manual' || task.dueBasis === 'manual') return false;
