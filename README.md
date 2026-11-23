@@ -8,6 +8,18 @@
 
 [作品集案例](https://the-stone-shows.pages.dev/#p6) · [历史版 v0.5.2 下载](https://github.com/forkseek/qq-wechat-bench/releases/tag/v0.5.2)
 
+## 桌面小便签
+
+从主界面点「桌面小便签」，或双击 `打开迷你小窗.cmd`。小窗可以置顶，点右上角的箭头就能回到主工作台。
+
+![讯课小便签实操：切换仅看必做，完成后撤销，勾选多条待办，再快速新建一条带截止日期的待办](docs/media/xunke-widget-demo.gif)
+
+- 点顶部的通知按钮，在全部通知和仅看必做之间切换。
+- 完成或忽略一条待办后可以撤销。勾选多条可批量完成、忽略或删除。
+- 在底部速记一条待办，也可以用日历按钮设置截止日期。
+
+[在作品集中观看演示](https://the-stone-shows.pages.dev/#xunke-widget)
+
 ## 从源码启动桌面版
 
 需要 Windows、Node.js 24 或更高版本和 Microsoft Edge WebView2 Runtime。克隆仓库后，在项目根目录执行以下命令，微信组件和桌面依赖会装到项目的 `data/` 目录。
