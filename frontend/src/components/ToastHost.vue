@@ -28,17 +28,17 @@ defineProps({
   pointer-events: auto;
   max-width: 360px;
   padding: 10px 16px;
-  border-radius: 12px;
-  background: rgba(20, 27, 45, 0.92);
-  backdrop-filter: blur(20px);
-  color: #f8fafc;
+  border-radius: var(--sketch-radius-sm);
+  background: var(--marker-yellow);
+  color: var(--ink);
   font-size: 13px;
-  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(129, 140, 248, 0.35);
+  font-weight: 700;
+  box-shadow: 4px 4px 0 var(--stroke);
+  border: 2px solid var(--stroke);
 }
 
 .toast-error {
-  background: rgba(159, 18, 57, 0.92);
-  border-color: rgba(251, 113, 133, 0.45);
+  background: var(--marker-rose);
+  color: var(--seal);
 }
 </style>

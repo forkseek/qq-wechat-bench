@@ -293,22 +293,28 @@ async function addQuickQQ(groupId, name) {
 
 .conv-card {
   position: relative;
-  padding: 16px 18px;
+  padding: 18px 18px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-top: 2px solid var(--pine);
-  box-shadow: var(--shadow-sm);
+  border: 2px solid var(--stroke);
+  box-shadow: 4px 4px 0 var(--stroke);
+  background: #ffffff;
 }
-.conv-card.conv-wx { border-top-color: var(--wx); }
-.conv-card.conv-qq { border-top-color: var(--qq); }
-.conv-card:hover {
-  border-color: var(--hairline-strong);
-  border-top-color: var(--pine);
-  box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+.conv-card::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 24px;
+  width: 54px;
+  height: 13px;
+  background: rgba(187, 247, 208, 0.8);
+  border: 1.5px solid rgba(35, 33, 30, 0.35);
+  transform: rotate(-2deg);
+  pointer-events: none;
 }
-.conv-card.conv-wx:hover { border-top-color: var(--wx); }
-.conv-card.conv-qq:hover { border-top-color: var(--qq); }
+.conv-card.conv-qq::before { background: rgba(186, 230, 253, 0.85); transform: rotate(2deg); }
+.conv-card:hover { transform: translate(-1px, -1px); box-shadow: 5.5px 5.5px 0 var(--stroke); }
 
 .conv-card-head {
   display: flex;
@@ -328,49 +334,25 @@ async function addQuickQQ(groupId, name) {
 .conv-monogram {
   width: 38px;
   height: 38px;
-  border-radius: 11px;
-  font-size: 16px;
+  border-radius: var(--sketch-circle);
+  border: 2px solid var(--stroke);
+  box-shadow: 2px 2px 0 var(--stroke);
+  font-family: var(--font-display);
+  font-size: 17px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
-.mono-wx { background: var(--wx-wash); color: var(--wx); border: 1px solid var(--wx-border); }
-.mono-qq { background: var(--qq-wash); color: var(--qq); border: 1px solid var(--qq-border); }
+.mono-wx { background: var(--marker-mint); color: var(--wx); }
+.mono-qq { background: var(--marker-sky); color: var(--qq); }
 
-.conv-title-col {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  flex: 1;
-}
-
-.conv-title-line {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.conv-card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #f8fafc;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.conv-card-meta {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-
-.rule-flag { color: #a5b4fc; font-weight: 500; }
+.conv-title-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.conv-title-line { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.conv-card-title { font-size: 15.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-card-meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; }
+.rule-flag { color: var(--pine); font-weight: 700; }
 
 .conv-card-summary {
   display: flex;
@@ -378,22 +360,22 @@ async function addQuickQQ(groupId, name) {
   gap: 8px;
   font-size: 12.5px;
   line-height: 1.6;
-  color: #cbd5e1;
-  background: rgba(0, 0, 0, 0.28);
+  color: var(--ink-2);
+  background: var(--paper);
   padding: 9px 11px;
-  border-radius: 9px;
-  border: 1px solid var(--hairline);
+  border-radius: var(--sketch-radius-sm);
+  border: 1.5px dashed var(--stroke);
 }
 
 .summary-seal {
-  width: 19px;
-  height: 19px;
-  border-radius: 5px;
-  background: var(--pine-wash);
-  border: 1px solid var(--pine-border);
-  color: #a5b4fc;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sketch-circle);
+  background: var(--marker-yellow);
+  border: 1.5px solid var(--stroke);
+  color: var(--ink);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;

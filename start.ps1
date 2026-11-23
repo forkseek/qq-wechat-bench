@@ -2,13 +2,25 @@
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $appRoot = $PSScriptRoot
+for ($migrationPathHop = 0; $migrationPathHop -lt 8; $migrationPathHop++) {
+    $migrationRootInfo = Get-Item -LiteralPath $appRoot -Force
+    if ($migrationRootInfo.LinkType -notin @('Junction', 'SymbolicLink')) { break }
+    $migrationTargetPath = [string](@($migrationRootInfo.Target)[0])
+    if (-not [IO.Path]::IsPathRooted($migrationTargetPath)) {
+        $migrationTargetPath = Join-Path ([IO.Path]::GetDirectoryName($appRoot)) $migrationTargetPath
+    }
+    $appRoot = [IO.Path]::GetFullPath($migrationTargetPath)
+}
 $runtimeDir = Join-Path $appRoot 'data'
 $pidFile = Join-Path $runtimeDir 'runtime.pid'
 $serverFile = Join-Path $appRoot 'server.mjs'
 $envFile = Join-Path $appRoot '.env'
+$stoppedFlag = Join-Path $runtimeDir 'backend-stopped.flag'
 . (Join-Path $appRoot 'scripts\runtime-config.ps1')
 
 if ($Stop) {
+    # 告诉桌面程序的看护：这是用户自己关的，不要自动拉起。
+    if (Test-Path -LiteralPath $runtimeDir) { Set-Content -LiteralPath $stoppedFlag -Value (Get-Date -Format s) -Encoding ascii }
     if (Test-Path -LiteralPath $pidFile) {
         $runtimeProcessId = [int](Get-Content -LiteralPath $pidFile -Raw).Trim()
         $runtimeProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $runtimeProcessId" -ErrorAction SilentlyContinue
@@ -50,6 +62,7 @@ if ($Stop) {
     exit
 }
 
+if (Test-Path -LiteralPath $stoppedFlag) { Remove-Item -LiteralPath $stoppedFlag -Force }
 $runtime = Get-WorkbenchRuntime -Root $appRoot
 $appPort = $runtime.port
 $appUrl = $runtime.url

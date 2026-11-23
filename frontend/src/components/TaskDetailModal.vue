@@ -17,6 +17,7 @@ const form = ref({
   title: '',
   dueDate: '',
   dueTime: '',
+  obligation: 'required',
   relevance: 'mine',
   status: 'pending',
   description: ''
@@ -25,7 +26,7 @@ const form = ref({
 function resetCreate() {
   task.value = null;
   sources.value = [];
-  form.value = { title: '', dueDate: '', dueTime: '', relevance: 'mine', status: 'pending', description: '' };
+  form.value = { title: '', dueDate: '', dueTime: '', obligation: 'required', relevance: 'mine', status: 'pending', description: '' };
 }
 
 async function loadTask() {
@@ -42,6 +43,7 @@ async function loadTask() {
       title: data.task.title || '',
       dueDate: data.task.dueDate || '',
       dueTime: data.task.dueTime || '',
+      obligation: data.task.obligation || 'required',
       relevance: data.task.relevance || 'mine',
       status: data.task.status || 'pending',
       description: data.task.description || ''
@@ -71,6 +73,7 @@ async function submit() {
       title: form.value.title.trim(),
       dueDate: form.value.dueDate || null,
       dueTime: form.value.dueTime || null,
+      obligation: form.value.obligation,
       relevance: form.value.relevance,
       status: form.value.status,
       description: form.value.description,
@@ -126,12 +129,10 @@ async function submit() {
 
         <div class="field-row">
           <label class="field">
-            <span class="field-label">归属关系</span>
-            <select v-model="form.relevance" class="select">
-              <option value="mine">与我有关</option>
-              <option value="everyone">全体适用</option>
-              <option value="unclear">归属待确认</option>
-              <option value="other">明确属于他人</option>
+            <span class="field-label">优先分级</span>
+            <select v-model="form.obligation" class="select">
+              <option value="required">⚡ 必须完成 · 必做事项</option>
+              <option value="optional">📌 普通通知 · 活动选修</option>
             </select>
           </label>
           <label class="field">
@@ -143,6 +144,16 @@ async function submit() {
             </select>
           </label>
         </div>
+
+        <label class="field">
+          <span class="field-label">归属关系</span>
+          <select v-model="form.relevance" class="select">
+            <option value="mine">与我有关</option>
+            <option value="everyone">全体适用</option>
+            <option value="unclear">归属待确认</option>
+            <option value="other">明确属于他人</option>
+          </select>
+        </label>
 
         <label class="field">
           <span class="field-label">要求与备注</span>
@@ -203,7 +214,7 @@ async function submit() {
 }
 
 .section-box {
-  border-top: 1px solid var(--hairline);
+  border-top: 1.5px dashed var(--stroke-soft);
   padding-top: 12px;
   display: flex;
   flex-direction: column;
@@ -211,9 +222,9 @@ async function submit() {
 }
 
 .section-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
   cursor: pointer;
 }
 
@@ -235,9 +246,9 @@ async function submit() {
 
 .source-item {
   padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--paper);
-  border: 1px solid var(--hairline);
+  border-radius: var(--sketch-radius-sm);
+  background: var(--paper-soft);
+  border: 1.5px dashed var(--stroke-soft);
 }
 
 .source-meta {
@@ -256,7 +267,7 @@ async function submit() {
 }
 
 .history-box {
-  border-top: 1px solid var(--hairline);
+  border-top: 1.5px dashed var(--stroke-soft);
   padding-top: 10px;
 }
 

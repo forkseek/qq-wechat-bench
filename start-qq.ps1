@@ -1,7 +1,17 @@
 ﻿param([switch]$Stop, [switch]$NoBrowser)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-$runtimeDir = Join-Path $PSScriptRoot 'data\napcat'
+$appRoot = $PSScriptRoot
+for ($migrationPathHop = 0; $migrationPathHop -lt 8; $migrationPathHop++) {
+    $migrationRootInfo = Get-Item -LiteralPath $appRoot -Force
+    if ($migrationRootInfo.LinkType -notin @('Junction', 'SymbolicLink')) { break }
+    $migrationTargetPath = [string](@($migrationRootInfo.Target)[0])
+    if (-not [IO.Path]::IsPathRooted($migrationTargetPath)) {
+        $migrationTargetPath = Join-Path ([IO.Path]::GetDirectoryName($appRoot)) $migrationTargetPath
+    }
+    $appRoot = [IO.Path]::GetFullPath($migrationTargetPath)
+}
+$runtimeDir = Join-Path $appRoot 'data\napcat'
 $launcherFile = Join-Path $runtimeDir 'shell\NapCatWinBootMain.exe'
 $pidFile = Join-Path $runtimeDir 'launcher.pid'
 # 存在这个文件时，工作台会保持 QQ 采集运行（掉线或退出后自动拉起）。
@@ -61,9 +71,9 @@ if ($Stop) {
     Write-Host 'QQ 采集已停止，本机消息数据已保留。'
     exit
 }
-& (Join-Path $PSScriptRoot 'start.ps1') -NoBrowser
-. (Join-Path $PSScriptRoot 'scripts\runtime-config.ps1')
-$runtime = Get-WorkbenchRuntime -Root $PSScriptRoot
+& (Join-Path $appRoot 'start.ps1') -NoBrowser
+. (Join-Path $appRoot 'scripts\runtime-config.ps1')
+$runtime = Get-WorkbenchRuntime -Root $appRoot
 $appUrl = $runtime.url
 $web = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 Invoke-WebRequest -Uri "$appUrl/qq-login" -WebSession $web -UseBasicParsing | Out-Null

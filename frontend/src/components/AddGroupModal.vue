@@ -169,11 +169,12 @@ async function addWechat(conv) {
 .group-list {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
+  border: 2px solid var(--stroke);
+  border-radius: var(--sketch-radius-sm);
   max-height: 360px;
   overflow-y: auto;
-  background: var(--paper);
+  background: var(--paper-card);
+  box-shadow: 3px 3px 0 var(--stroke);
 }
 
 .group-row {
@@ -182,9 +183,10 @@ async function addWechat(conv) {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1.5px dashed var(--stroke-soft);
   background: var(--paper-card);
 }
+.group-row:hover { background: var(--marker-yellow-soft); }
 .group-row:last-child { border-bottom: 0; }
 
 .group-info { min-width: 0; flex: 1; }

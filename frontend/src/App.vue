@@ -162,23 +162,25 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 
 <template>
   <div class="desktop-shell">
-    <!-- 左侧液态琉璃导航栏 -->
-    <aside class="glass-sidebar" aria-label="主导航">
+    <!-- 左侧手绘手账活页导航栏 -->
+    <aside class="sketch-sidebar" aria-label="主导航">
       <div class="sidebar-top">
         <a class="brand" href="/" @click.prevent="navigate('tasks')">
-          <span class="brand-orb" aria-hidden="true">
-            <span class="brand-orb-char">讯</span>
+          <span class="brand-doodle" aria-hidden="true">
+            <span class="brand-doodle-char">讯</span>
           </span>
           <div class="brand-meta">
-            <span class="brand-name">讯课工作台</span>
-            <span class="brand-tag">Obsidian · Studio</span>
+            <span class="brand-name">讯课手账</span>
+            <svg class="brand-wave" viewBox="0 0 90 10" fill="none" aria-hidden="true">
+              <path d="M2 6 C14 1, 24 9, 38 5 C52 1, 64 9, 88 4" stroke="#6d28d9" stroke-width="2.2" stroke-linecap="round" />
+            </svg>
           </div>
         </a>
       </div>
 
       <div class="sidebar-scroll">
         <div class="nav-group">
-          <div class="nav-group-label">工作空间</div>
+          <div class="nav-group-label">✎ 目录索引</div>
           <nav class="nav-list">
             <button
               class="nav-item"
@@ -186,37 +188,39 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
               :title="`必做事项 ${requiredPendingCount} 项，普通通知 ${optionalPendingCount} 条`"
               @click="navigate('tasks')"
             >
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="16" rx="3" />
-                <path d="M8 10h8M8 14h5" />
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 5.5C4 4.5 5 4 7 4h10c2 0 3 .7 3 2v12c0 1.5-.8 2-2.5 2H6.5C4.8 20 4 19.3 4 18V5.5z" />
+                <path d="M8.5 9.5l2 2 4.5-4.5" />
+                <path d="M8.5 15.5h7" />
               </svg>
               <span class="nav-label">待办清单</span>
-              <span v-if="requiredPendingCount > 0" class="nav-pill pill-indigo num" title="必做事项">{{ requiredPendingCount }}</span>
+              <span v-if="requiredPendingCount > 0" class="nav-pill pill-hot num" title="必做事项">{{ requiredPendingCount }}</span>
               <span v-else-if="optionalPendingCount > 0" class="nav-pill num" title="普通通知">{{ optionalPendingCount }}</span>
             </button>
 
             <button class="nav-item" :class="{ active: view === 'messages' }" @click="navigate('messages')">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 6.5C4 5 5.2 4 7 4h10c1.8 0 3 1 3 2.5v7.5c0 1.8-1.2 2.5-3 2.5h-6.5L5.5 20v-3.5H7C5.2 16.5 4 15.5 4 14V6.5z" />
+                <path d="M8.5 9.5h7M8.5 13h4.5" />
               </svg>
               <span class="nav-label">群聊消息</span>
             </button>
 
             <button class="nav-item" :class="{ active: view === 'conversations' }" @click="navigate('conversations')">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="9" cy="8" r="3.5" />
+                <path d="M3 19c.6-3.2 2.8-5 6-5s5.4 1.8 6 5" />
+                <circle cx="17" cy="9" r="2.5" />
+                <path d="M16.5 14.5c2.2.4 3.8 1.8 4.3 4.5" />
               </svg>
               <span class="nav-label">关注群组</span>
               <span v-if="monitoredCount > 0" class="nav-pill num">{{ monitoredCount }}</span>
             </button>
 
             <button class="nav-item" :class="{ active: view === 'settings' }" @click="navigate('settings', 'connections')">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="3" />
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.2" />
+                <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8" />
               </svg>
               <span class="nav-label">设置与维护</span>
             </button>
@@ -224,7 +228,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
         </div>
 
         <div class="nav-group">
-          <div class="nav-group-label">快捷工具</div>
+          <div class="nav-group-label">★ 随手工具</div>
           <div class="nav-list">
             <button
               v-if="state?.model?.configured"
@@ -233,31 +237,33 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
               @click="assistantOpen = !assistantOpen"
             >
               <span class="ai-spark" aria-hidden="true">✦</span>
-              <span class="nav-label">AI 通知助手</span>
-              <span class="nav-pill pill-cyan">对话</span>
+              <span class="nav-label">AI 小助手</span>
+              <span class="nav-pill pill-lav">问答</span>
             </button>
 
             <button v-if="inDesktop" class="nav-item" @click="openMiniWidget">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <rect x="11" y="11" width="7" height="7" rx="1" />
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 5h16v14H4z" />
+                <path d="M12 11h6v6h-6z" />
               </svg>
-              <span class="nav-label">桌面迷你小窗</span>
+              <span class="nav-label">桌面小便签</span>
             </button>
 
             <button class="nav-item" @click="profileModalOpen = true">
-              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8" r="3.8" />
+                <path d="M5 20c1-3.8 3.4-5.5 7-5.5s6 1.7 7 5.5" />
               </svg>
-              <span class="nav-label">{{ state?.profile?.name ? `我的规则 · ${state.profile.name}` : '我的身份与规则' }}</span>
+              <span class="nav-label">{{ state?.profile?.name ? `规则 · ${state.profile.name}` : '我的身份与规则' }}</span>
             </button>
           </div>
         </div>
       </div>
 
-      <!-- 底部实时连接状态舱 -->
-      <div v-if="state" class="sidebar-telemetry">
+      <!-- 底部胶带手绘状态便签 -->
+      <div v-if="state" class="sidebar-sticky-note">
+        <span class="washi-tape" aria-hidden="true"></span>
+        <div class="sticky-note-title">连线小纸条</div>
         <button class="telemetry-row" @click="navigate('settings', 'connections')" title="查看 QQ 接入状态">
           <span class="tel-left">
             <span class="dot" :class="qqLive.dot"></span>
@@ -284,7 +290,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
       </div>
     </aside>
 
-    <!-- 右侧宽屏液态玻璃工作区 -->
+    <!-- 右侧手账主纸页 -->
     <main class="workspace-main">
       <div class="workspace-inner" :class="{ 'workspace-wide': view === 'messages' }">
         <div v-if="loadError && !state" class="banner banner-err">
@@ -294,7 +300,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 
         <div v-else-if="!state" class="empty-state">
           <div class="empty-mark">讯</div>
-          <p class="muted">正在载入暗夜工作空间…</p>
+          <p class="muted">正在翻开手账本…</p>
         </div>
 
         <template v-else>
@@ -404,26 +410,46 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   overflow-x: clip;
 }
 
-/* 左侧液态琉璃导航栏 */
-.glass-sidebar {
+/* 左侧手账活页侧栏 */
+.sketch-sidebar {
   position: sticky;
   top: 0;
   height: 100vh;
-  width: 244px;
+  width: 248px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: 18px 14px 16px;
-  background: var(--glass-sidebar);
-  backdrop-filter: blur(26px) saturate(160%);
-  border-right: 1px solid var(--hairline);
-  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.03), 12px 0 36px -20px rgba(0, 0, 0, 0.65);
+  padding: 20px 16px 18px;
+  background-color: var(--glass-sidebar);
+  background-image:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 38px,
+      rgba(180, 165, 138, 0.25) 38px,
+      rgba(180, 165, 138, 0.25) 39px
+    );
+  border-right: 2.5px solid var(--stroke);
   z-index: 30;
 }
 
+/* 活页装订孔装饰边 */
+.sketch-sidebar::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  right: -7px;
+  width: 12px;
+  background-image: radial-gradient(circle at center, var(--bg) 4px, var(--stroke) 4.2px, var(--stroke) 5.5px, transparent 5.8px);
+  background-size: 12px 34px;
+  background-repeat: repeat-y;
+  pointer-events: none;
+}
+
 .sidebar-top {
-  padding: 2px 6px 18px;
-  border-bottom: 1px solid var(--hairline);
+  padding: 2px 4px 16px;
+  border-bottom: 2px dashed var(--hairline);
   margin-bottom: 16px;
 }
 
@@ -436,45 +462,46 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
 }
 .brand:hover { text-decoration: none; }
 
-.brand-orb {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 52%, #14b8a6 100%);
-  box-shadow: 0 6px 18px -4px rgba(99, 102, 241, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+.brand-doodle {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sketch-radius-sm);
+  border: 2.2px solid var(--stroke);
+  background: var(--marker-yellow);
+  box-shadow: 3px 3px 0 var(--stroke);
+  transform: rotate(-4deg);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.brand-orb-char {
-  font-size: 17px;
+.brand-doodle-char {
+  font-family: var(--font-display);
+  font-size: 20px;
   font-weight: 700;
-  color: #ffffff;
-  letter-spacing: 0.02em;
+  color: var(--ink);
+  line-height: 1;
 }
 
 .brand-meta {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
 }
 
 .brand-name {
-  font-size: 15.5px;
+  font-family: var(--font-display);
+  font-size: 19px;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #ffffff;
-  line-height: 1.2;
+  color: var(--ink);
+  line-height: 1.1;
 }
 
-.brand-tag {
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+.brand-wave {
+  width: 78px;
+  height: 9px;
 }
 
 .sidebar-scroll {
@@ -482,131 +509,122 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
+  padding-right: 4px;
 }
 
-.nav-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.nav-group { display: flex; flex-direction: column; gap: 6px; }
 
 .nav-group-label {
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  padding: 0 8px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
   color: var(--ink-3);
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.nav-list {
+.nav-list { display: flex; flex-direction: column; gap: 5px; }
+
+.nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border-radius: var(--sketch-radius-sm);
+  border: 2px solid transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-align: left;
+  transition: all 0.14s var(--ease);
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--stroke);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--stroke);
+}
+
+.nav-item.active {
+  background: var(--marker-yellow);
+  border-color: var(--stroke);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: 3px 3px 0 var(--stroke);
+  transform: rotate(-0.5deg);
+}
+
+.nav-icon { width: 17px; height: 17px; flex-shrink: 0; }
+.nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.nav-pill {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: var(--sketch-radius-pill);
+  border: 1.5px solid var(--stroke);
+  background: #ffffff;
+  color: var(--ink);
+}
+.nav-pill.pill-hot {
+  background: var(--marker-rose);
+  color: var(--seal);
+}
+.nav-pill.pill-lav {
+  background: var(--marker-lavender);
+  color: var(--pine);
+}
+
+.ai-nav-item {
+  background: rgba(237, 233, 254, 0.55);
+  border: 1.5px dashed var(--stroke);
+}
+.ai-nav-item.active {
+  background: var(--marker-lavender);
+  border-style: solid;
+}
+.ai-spark { width: 17px; text-align: center; color: var(--pine); font-size: 15px; flex-shrink: 0; }
+
+/* 底部手绘便利贴状态栏 */
+.sidebar-sticky-note {
+  position: relative;
+  margin-top: 16px;
+  padding: 14px 11px 10px;
+  border-radius: var(--sketch-radius-sm);
+  border: 2px solid var(--stroke);
+  background: #fffbeb;
+  box-shadow: 3.5px 3.5px 0 var(--stroke);
+  transform: rotate(-0.8deg);
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.nav-item {
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--ink-2);
-  text-align: left;
-  transition: all 0.16s var(--ease);
-}
-
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--ink);
-}
-
-.nav-item.active {
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.22) 0%, rgba(99, 102, 241, 0.08) 100%);
-  color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(129, 140, 248, 0.28);
-}
-
-.nav-item.active::before {
-  content: "";
+.washi-tape {
   position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: #818cf8;
-  box-shadow: 0 0 10px rgba(129, 140, 248, 0.85);
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(2deg);
+  width: 54px;
+  height: 15px;
+  background: rgba(147, 197, 253, 0.72);
+  border: 1.5px solid rgba(35, 33, 30, 0.35);
+  pointer-events: none;
 }
 
-.nav-icon {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  opacity: 0.82;
-}
-.nav-item.active .nav-icon { opacity: 1; color: #a5b4fc; }
-
-.nav-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nav-pill {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--ink-2);
-}
-.nav-pill.pill-indigo {
-  background: rgba(99, 102, 241, 0.85);
-  color: #ffffff;
-  box-shadow: 0 0 12px rgba(99, 102, 241, 0.45);
-}
-.nav-pill.pill-cyan {
-  background: rgba(45, 212, 191, 0.16);
-  color: #5eead4;
-  border: 1px solid rgba(45, 212, 191, 0.3);
-}
-
-.ai-nav-item {
-  border: 1px solid rgba(129, 140, 248, 0.18);
-  background: rgba(99, 102, 241, 0.06);
-}
-.ai-nav-item:hover {
-  border-color: rgba(129, 140, 248, 0.36);
-  background: rgba(99, 102, 241, 0.14);
-}
-.ai-spark {
-  width: 16px;
+.sticky-note-title {
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-3);
   text-align: center;
-  color: #38bdf8;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-/* 底部实时状态舱 */
-.sidebar-telemetry {
-  margin-top: 14px;
-  padding: 10px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.32);
-  border: 1px solid var(--hairline);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  margin-bottom: 3px;
+  border-bottom: 1.5px dashed var(--hairline);
+  padding-bottom: 4px;
 }
 
 .telemetry-row {
@@ -614,47 +632,30 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 5px 7px;
-  border-radius: 7px;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
   font-size: 12px;
   transition: background 0.14s;
 }
-.telemetry-row:hover { background: rgba(255, 255, 255, 0.06); }
+.telemetry-row:hover { background: var(--marker-yellow); }
 
-.tel-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-2);
-  font-weight: 500;
-}
+.tel-left { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--ink); }
+.tel-val { color: var(--ink-3); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tel-val.online { color: var(--ink-2); font-weight: 600; }
 
-.tel-val {
-  color: var(--ink-3);
-  max-width: 112px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tel-val.online { color: #cbd5e1; }
-
-/* 右侧主工作区 */
-.workspace-main {
-  flex: 1;
-  min-width: 0;
-  min-height: 100vh;
-}
+/* 右侧手账主区 */
+.workspace-main { flex: 1; min-width: 0; min-height: 100vh; }
 
 .workspace-inner {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 28px 34px 48px;
+  padding: 26px 34px 48px;
 }
 
 .workspace-inner.workspace-wide {
   max-width: 1240px;
-  padding: 22px 28px 24px;
+  padding: 20px 28px 24px;
 }
 
 .quiet-notice {
@@ -663,46 +664,39 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
   gap: 10px;
   padding: 9px 14px;
   margin-bottom: 18px;
-  border-radius: 10px;
-  border: 1px solid var(--ochre-border);
+  border-radius: var(--sketch-radius-sm);
+  border: 2px solid var(--stroke);
   background: var(--ochre-wash);
+  box-shadow: 3px 3px 0 var(--stroke);
   font-size: 12.5px;
-  color: #fde68a;
+  font-weight: 600;
+  color: var(--ink);
   flex-wrap: wrap;
 }
 .notice-text { flex: 1; min-width: 180px; }
 
 @media (max-width: 860px) {
   .desktop-shell { flex-direction: column; }
-  .glass-sidebar {
+  .sketch-sidebar {
     position: sticky;
     top: 0;
     height: auto;
     width: 100%;
     padding: 10px 14px;
     border-right: 0;
-    border-bottom: 1px solid var(--hairline);
+    border-bottom: 2.5px solid var(--stroke);
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
     flex-wrap: wrap;
   }
-  .sidebar-top {
-    padding: 0;
-    margin: 0;
-    border: 0;
-  }
-  .brand-tag, .nav-group-label, .sidebar-telemetry { display: none; }
-  .sidebar-scroll {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    overflow: visible;
-  }
+  .sketch-sidebar::after { display: none; }
+  .sidebar-top { padding: 0; margin: 0; border: 0; }
+  .brand-wave, .nav-group-label, .sidebar-sticky-note { display: none; }
+  .sidebar-scroll { flex-direction: row; align-items: center; gap: 8px; overflow: visible; padding-right: 0; }
   .nav-list { flex-direction: row; flex-wrap: wrap; gap: 4px; }
   .nav-item { width: auto; padding: 6px 10px; font-size: 12.5px; }
-  .nav-item.active::before { display: none; }
   .workspace-inner, .workspace-inner.workspace-wide { padding: 16px 14px 28px; }
 }
 </style>

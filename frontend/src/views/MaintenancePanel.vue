@@ -187,7 +187,7 @@ function jobLabel(job) {
   justify-content: space-between;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1.5px dashed var(--stroke-soft);
   font-size: 13px;
 }
 .simple-row:last-child { border-bottom: 0; padding-bottom: 0; }

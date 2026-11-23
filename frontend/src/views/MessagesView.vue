@@ -467,11 +467,11 @@ function outboxStatusLabel(item) {
 
 .conv-pane-top {
   padding: 12px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 2px dashed var(--hairline);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: rgba(0, 0, 0, 0.24);
+  background: var(--paper);
 }
 
 .conv-tabs {
@@ -497,11 +497,11 @@ function outboxStatusLabel(item) {
   gap: 4px;
   transition: background 0.14s;
 }
-.conv-item:hover { background: rgba(255, 255, 255, 0.05); }
+.conv-item:hover { background: var(--paper-soft); }
 .conv-item.active {
-  background: rgba(99, 102, 241, 0.16);
-  border-left: 3px solid #818cf8;
-  padding-left: 9px;
+  background: var(--marker-yellow);
+  border-left: 4px solid var(--stroke);
+  padding-left: 8px;
 }
 
 .conv-item-top {
@@ -575,13 +575,13 @@ function outboxStatusLabel(item) {
 
 .thread-head {
   padding: 13px 18px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 2px dashed var(--hairline);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  background: rgba(0, 0, 0, 0.24);
+  background: var(--paper);
 }
 
 .thread-title-group {
@@ -642,7 +642,9 @@ function outboxStatusLabel(item) {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: rgba(5, 8, 14, 0.45);
+  background-color: #fdfaf0;
+  background-image: radial-gradient(#d8ccb8 1px, transparent 1px);
+  background-size: 18px 18px;
   min-width: 0;
 }
 
@@ -660,16 +662,16 @@ function outboxStatusLabel(item) {
   max-width: min(620px, 88%);
   min-width: 0;
   padding: 11px 14px;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid var(--hairline);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-radius: var(--sketch-radius-sm);
+  background: #ffffff;
+  border: 2px solid var(--stroke);
+  box-shadow: 3px 3px 0 var(--stroke);
   overflow-wrap: anywhere;
 }
 
 .msg-self .msg-bubble {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.28) 0%, rgba(79, 70, 229, 0.22) 100%);
-  border-color: rgba(129, 140, 248, 0.36);
+  background: var(--marker-mint);
+  border-color: var(--stroke);
 }
 
 .msg-meta {

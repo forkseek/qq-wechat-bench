@@ -1,76 +1,91 @@
-/* 讯课 · 暗夜琉璃 × 液态玻璃工作台（Dark Obsidian & Liquid Glass Desktop Atelier）
-   深邃曜石底色 + 极光微光漫射 + 磨砂琉璃面板 + 细腻高光描边 */
+/* 讯课 · 手绘手账工作台（Hand-Drawn Sketchbook & Bullet Journal UI）
+   暖白点阵手账纸 + 炭黑钢笔手绘线框 + 荧光笔彩铅涂抹 + 硬偏移素描投影 */
 
 :root {
-  /* 核心暗夜画布与玻璃层级 */
-  --bg: #07090e;
-  --bg-elevated: #0d111a;
-  --paper: #0c1018;
-  --paper-card: rgba(18, 23, 35, 0.74);
-  --paper-solid: #121723;
-  --paper-soft: rgba(255, 255, 255, 0.045);
-  --paper-hover: rgba(255, 255, 255, 0.08);
-  --glass-modal: rgba(15, 20, 31, 0.92);
-  --glass-sidebar: rgba(11, 15, 24, 0.78);
+  /* 手账纸张与炭黑墨水层级 */
+  --bg: #faf5e8;
+  --bg-elevated: #fffdf7;
+  --paper: #fdfaf0;
+  --paper-card: #ffffff;
+  --paper-solid: #ffffff;
+  --paper-soft: #f3ecdc;
+  --paper-hover: #ebe1cb;
+  --glass-modal: #fffdf8;
+  --glass-sidebar: #f5efe0;
 
-  /* 琉璃高光与微光描边 */
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-strong: rgba(255, 255, 255, 0.14);
-  --book-frame: rgba(255, 255, 255, 0.1);
-  --specular-top: inset 0 1px 0 rgba(255, 255, 255, 0.11);
+  /* 炭黑钢笔描边与素描虚线 */
+  --ink: #23211e;
+  --ink-2: #57524a;
+  --ink-3: #8a8275;
+  --stroke: #23211e;
+  --hairline: #d8ccb8;
+  --hairline-strong: #23211e;
+  --book-frame: #23211e;
 
-  /* 文字层级 */
-  --ink: #f1f5f9;
-  --ink-2: #94a3b8;
-  --ink-3: #64748b;
+  /* 荧光笔 & 彩铅色板 */
+  --marker-yellow: #fef08a;
+  --marker-yellow-deep: #facc15;
+  --marker-lavender: #ede9fe;
+  --marker-lavender-strong: #c4b5fd;
+  --marker-sky: #e0f2fe;
+  --marker-mint: #dcfce7;
+  --marker-peach: #ffedd5;
+  --marker-rose: #ffe4e6;
 
-  /* 主强调色：琉璃靛蓝（Electric Indigo） */
-  --pine: #818cf8;
-  --pine-hi: #6366f1;
-  --pine-deep: #4f46e5;
-  --pine-wash: rgba(99, 102, 241, 0.15);
-  --pine-border: rgba(129, 140, 248, 0.34);
+  /* 主强调色：彩铅靛紫（必做 / 主操作） */
+  --pine: #5b21b6;
+  --pine-hi: #6d28d9;
+  --pine-deep: #4c1d95;
+  --pine-wash: #ede9fe;
+  --pine-border: #23211e;
 
-  /* 语义色：珊瑚红 / 琥珀金 / 翠玉绿 / 天空蓝 */
-  --seal: #fb7185;
-  --seal-hi: #f43f5e;
-  --seal-wash: rgba(244, 63, 94, 0.14);
-  --seal-border: rgba(251, 113, 133, 0.32);
+  /* 语义色 */
+  --seal: #be123c;
+  --seal-hi: #e11d48;
+  --seal-wash: #ffe4e6;
+  --seal-border: #be123c;
 
-  --ochre: #fbbf24;
-  --ochre-wash: rgba(245, 158, 11, 0.14);
-  --ochre-border: rgba(251, 191, 36, 0.32);
+  --ochre: #b45309;
+  --ochre-wash: #fef3c7;
+  --ochre-border: #b45309;
 
-  --wx: #34d399;
-  --wx-wash: rgba(16, 185, 129, 0.14);
-  --wx-border: rgba(52, 211, 153, 0.3);
+  --wx: #15803d;
+  --wx-wash: #dcfce7;
+  --wx-border: #15803d;
 
-  --qq: #38bdf8;
-  --qq-wash: rgba(14, 165, 233, 0.14);
-  --qq-border: rgba(56, 189, 248, 0.3);
+  --qq: #0369a1;
+  --qq-wash: #e0f2fe;
+  --qq-border: #0369a1;
 
-  --celadon: #2dd4bf;
-  --celadon-wash: rgba(45, 212, 191, 0.14);
+  --celadon: #0f766e;
+  --celadon-wash: #ccfbf1;
 
-  /* 现代极简无衬线字体栈 */
-  --font-display: "Segoe UI Variable Display", "PingFang SC", "Microsoft YaHei UI", "Inter", sans-serif;
-  --font-serif: "Segoe UI Variable", "PingFang SC", "Microsoft YaHei UI", sans-serif;
-  --font-body: "Segoe UI Variable", "Microsoft YaHei UI", "PingFang SC", "Inter", sans-serif;
-  --font-num: "Bahnschrift", "DIN Alternate", "Segoe UI Variable Display", monospace;
+  /* 手绘圆润字体栈 */
+  --font-display: "Segoe Print", "YouYuan", "STKaiti", "KaiTi", "PingFang SC", "Microsoft YaHei UI", cursive, sans-serif;
+  --font-serif: "YouYuan", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --font-body: "YouYuan", "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
+  --font-num: "Segoe Print", "Comic Sans MS", "Bahnschrift", cursive, sans-serif;
 
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 18px;
+  /* 手绘不规则有机圆角（Excalidraw / Bullet Journal 笔触感） */
+  --sketch-radius: 24px 8px 22px 10px / 10px 22px 8px 24px;
+  --sketch-radius-sm: 14px 5px 12px 6px / 6px 12px 5px 14px;
+  --sketch-radius-pill: 120px 18px 135px 22px / 22px 115px 18px 125px;
+  --sketch-circle: 54% 46% 45% 55% / 47% 53% 47% 53%;
 
-  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --shadow-sheet: 0 24px 60px -20px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  --shadow-md: 0 18px 44px -14px rgba(0, 0, 0, 0.75);
-  --shadow-glow-indigo: 0 8px 24px -6px rgba(99, 102, 241, 0.45);
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 20px;
+
+  /* 硬质素描偏移阴影 */
+  --shadow-sm: 2.5px 2.5px 0 #23211e;
+  --shadow-sheet: 5px 5px 0 #23211e;
+  --shadow-md: 6px 6px 0 #23211e;
+  --shadow-soft: 3.5px 3.5px 0 rgba(35, 33, 30, 0.22);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--ink);
-  color-scheme: dark;
+  color-scheme: light;
 }

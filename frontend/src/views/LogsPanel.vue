@@ -105,8 +105,8 @@ function levelLabel(lv) {
 
 .logs-toolbar {
   padding: 12px 14px;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--paper);
+  border-bottom: 1.5px dashed var(--stroke-soft);
+  background: var(--paper-soft);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -136,13 +136,13 @@ function levelLabel(lv) {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--hairline);
+  padding: 9px 14px;
+  border-bottom: 1.5px dashed var(--stroke-soft);
   font-size: 13px;
   flex-wrap: wrap;
 }
 .log-row:last-child { border-bottom: 0; }
-.log-row:hover { background: var(--paper); }
+.log-row:hover { background: var(--marker-yellow-soft); }
 
 .log-time { font-size: 12px; width: 122px; flex-shrink: 0; }
 
@@ -155,22 +155,23 @@ function levelLabel(lv) {
   min-width: 200px;
 }
 
-.log-msg { font-weight: 500; color: var(--ink); }
+.log-msg { font-weight: 700; color: var(--ink); }
 .log-detail { font-size: 12.5px; }
 
 .log-code {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 11.5px;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: 6px 3px 6px 4px / 4px 6px 3px 6px;
+  border: 1px solid var(--stroke-soft);
   background: var(--paper-soft);
   color: var(--ink-2);
 }
 
 .logs-pager {
   padding: 10px 14px;
-  border-top: 1px solid var(--hairline);
-  background: var(--paper);
+  border-top: 1.5px dashed var(--stroke-soft);
+  background: var(--paper-soft);
   display: flex;
   align-items: center;
   justify-content: space-between;

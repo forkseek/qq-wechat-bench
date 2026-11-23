@@ -158,10 +158,9 @@ function onKeydown(e) {
   right: 0;
   bottom: 0;
   width: min(390px, 92vw);
-  background: rgba(13, 18, 29, 0.92);
-  backdrop-filter: blur(28px) saturate(160%);
-  border-left: 1px solid var(--hairline-strong);
-  box-shadow: -18px 0 48px -12px rgba(0, 0, 0, 0.8);
+  background: #fffdf7;
+  border-left: 2.5px solid var(--stroke);
+  box-shadow: -8px 0 0 rgba(35, 33, 30, 0.14);
   display: flex;
   flex-direction: column;
   transform: translateX(102%);
