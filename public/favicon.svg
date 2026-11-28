@@ -1,1 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="#22694f"/><path d="M18 19h28v20H31l-10 8v-8h-3z" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="m25 29 5 5 10-10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- 讯课图标 C：手账风台历 + 绿色大勾（炭黑粗描边、荧光笔色、右下实心墨影） -->
+  <rect x="34" y="48" width="196" height="190" rx="30" fill="#23211e"/>
+  <rect x="22" y="36" width="196" height="190" rx="30" fill="#fffdf5" stroke="#23211e" stroke-width="14"/>
+  <path d="M22 66 C22 49 35 36 52 36 L188 36 C205 36 218 49 218 66 L218 92 L22 92 Z" fill="#fb7185" stroke="#23211e" stroke-width="14" stroke-linejoin="round"/>
+  <line x1="80" y1="14" x2="80" y2="58" stroke="#23211e" stroke-width="18" stroke-linecap="round"/>
+  <line x1="160" y1="14" x2="160" y2="58" stroke="#23211e" stroke-width="18" stroke-linecap="round"/>
+  <path d="M66 154 L106 192 L178 116" fill="none" stroke="#23211e" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M66 154 L106 192 L178 116" fill="none" stroke="#86efac" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

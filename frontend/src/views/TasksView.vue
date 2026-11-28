@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, reactive } from 'vue';
+import { ref, computed, reactive, nextTick } from 'vue';
 import { api } from '../api.js';
+import GachaMachine from '../components/GachaMachine.vue';
 import {
   todayBeijing,
   datePlusDays,
@@ -220,6 +221,61 @@ async function toggleExpand(task) {
   }
 }
 
+// ---------- 可玩手账：盖章完成 + 扭蛋抽签 ----------
+const stamping = reactive({});  // id -> true
+const flashId = ref('');
+const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function completeWithStamp(task) {
+  if (busy.value || stamping[task.id]) return;
+  if (reduceMotion) return applyStatusToTasks([task], 'done', '标记为已完成');
+  stamping[task.id] = true;
+  setTimeout(async () => {
+    try {
+      await applyStatusToTasks([task], 'done', '标记为已完成');
+    } finally {
+      delete stamping[task.id];
+    }
+  }, 620);
+}
+
+function urgencyWeight(task) {
+  if (!task.dueDate) return 1;
+  const diff = Math.round((Date.parse(`${task.dueDate}T00:00:00Z`) - Date.parse(`${todayBeijing()}T00:00:00Z`)) / 86_400_000);
+  if (diff <= 0) return 6;
+  if (diff === 1) return 5;
+  if (diff <= 3) return 4;
+  if (diff <= 7) return 2;
+  return 1;
+}
+
+const gachaTasks = computed(() =>
+  requiredPending.value.map(t => {
+    const due = formatDue(t);
+    return {
+      id: t.id,
+      title: t.title,
+      group: convTitle(t),
+      dueText: due.text,
+      tag: due.tag,
+      state: due.state,
+      weight: urgencyWeight(t)
+    };
+  })
+);
+
+async function focusTask(taskId) {
+  const task = allTasks.value.find(t => t.id === taskId);
+  if (!task) return;
+  query.value = '';
+  if (tab.value !== 'pending' && tab.value !== 'required') switchTab('pending');
+  await nextTick();
+  document.getElementById(`task-${task.id}`)?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+  flashId.value = task.id;
+  setTimeout(() => { if (flashId.value === task.id) flashId.value = ''; }, 1800);
+  if (expandedId.value !== task.id) toggleExpand(task);
+}
+
 function setQuickDate(targetForm, offsetDays) {
   if (offsetDays === null) {
     targetForm.dueDate = '';
@@ -287,9 +343,14 @@ async function setObligation(tasksToChange, targetObligation) {
       } catch { /* ignore */ }
     }
     if (count > 0) {
-      const label = targetObligation === 'required' ? '移入必做事项' : '分流为普通通知';
-      lastUndo.value = { label: `已将 ${count} 项${label}`, items: undoItems };
-      emit('toast', `已将 ${count} 项${label}`);
+      if (targetObligation === 'required') {
+        // 必做事项不能降级，所以升级不提供「撤销」
+        lastUndo.value = null;
+        emit('toast', `已将 ${count} 项移入必做事项（必做不能再改回普通通知）`);
+      } else {
+        lastUndo.value = { label: `已将 ${count} 项分流为普通通知`, items: undoItems };
+        emit('toast', `已将 ${count} 项分流为普通通知`);
+      }
       emit('refresh');
     }
   } finally {
@@ -307,15 +368,19 @@ async function applyStatusToTasks(tasksToChange, nextStatus, actionLabel) {
   busy.value = true;
   const undoItems = [];
   let count = 0;
+  let snacks = 0; // 桌宠零食罐这次一共进了几块
+  let levelUp = false;
   try {
     for (const t of tasksToChange) {
       const current = allTasks.value.find(x => x.id === t.id) || t;
       try {
-        await api(`/api/tasks/${encodeURIComponent(current.id)}`, {
+        const res = await api(`/api/tasks/${encodeURIComponent(current.id)}`, {
           revision: current.revision,
           status: nextStatus,
           needsReview: false
         }, 'PATCH');
+        snacks += Number(res?.petReward?.snacks) || 0;
+        levelUp = levelUp || Boolean(res?.petReward?.levelUp);
         undoItems.push({
           id: current.id,
           prevStatus: current.status,
@@ -329,7 +394,8 @@ async function applyStatusToTasks(tasksToChange, nextStatus, actionLabel) {
     }
     if (count > 0) {
       lastUndo.value = { label: `已将 ${count} 项${actionLabel}`, items: undoItems };
-      emit('toast', `已将 ${count} 项${actionLabel}`);
+      emit('toast', `已将 ${count} 项${actionLabel}${snacks ? ` · 桌宠零食罐 +${snacks}` : ''}`);
+      if (levelUp) emit('toast', '桌宠升级啦！去看看它学会了什么～');
       emit('refresh');
     }
   } finally {
@@ -599,6 +665,9 @@ function describeRun(run) {
       </div>
     </form>
 
+    <!-- 扭蛋抽签：嵌在待办清单正上方 -->
+    <GachaMachine :tasks="gachaTasks" @pick="focusTask" />
+
     <!-- 分流导航与全局工具栏 -->
     <div class="book-sheet toolbar-sheet">
       <div class="panel-toolbar">
@@ -656,17 +725,10 @@ function describeRun(run) {
             v-if="tab === 'pending' || tab === 'optional'"
             class="btn btn-secondary btn-sm"
             :disabled="busy"
+            title="升级后不能再改回普通通知"
             @click="batchChangeObligation('required')"
           >
             ⚡ 设为必做
-          </button>
-          <button
-            v-if="tab === 'pending' || tab === 'required'"
-            class="btn btn-secondary btn-sm"
-            :disabled="busy"
-            @click="batchChangeObligation('optional')"
-          >
-            转为通知
           </button>
           <button
             v-if="tab !== 'cancelled'"
@@ -789,6 +851,7 @@ function describeRun(run) {
           <div v-if="section.items.length" class="entries">
             <div
               v-for="task in section.items"
+              :id="`task-${task.id}`"
               :key="task.id"
               class="entry-block"
               :class="[
@@ -798,10 +861,13 @@ function describeRun(run) {
                   'is-selected': selectedIds.has(task.id),
                   'is-expanded': expandedId === task.id,
                   'is-done': task.status === 'done' || task.status === 'cancelled',
-                  'is-overdue': formatDue(task).state === 'overdue' && tab !== 'stale'
+                  'is-overdue': formatDue(task).state === 'overdue' && tab !== 'stale',
+                  'is-flash': flashId === task.id,
+                  'is-stamping': stamping[task.id]
                 }
               ]"
             >
+              <div v-if="stamping[task.id]" class="done-stamp" aria-hidden="true">搞定!</div>
               <div class="entry-row">
                 <div class="entry-left">
                   <button
@@ -862,25 +928,17 @@ function describeRun(run) {
                         v-if="!isRequired(task)"
                         class="row-btn row-btn-promote"
                         :disabled="busy"
-                        title="提升为必做事项"
+                        title="提升为必做事项（升级后不能再改回普通通知）"
                         @click.stop="setObligation([task], 'required')"
                       >
                         ↑ 必做
                       </button>
-                      <button
-                        v-else
-                        class="row-btn row-btn-demote"
-                        :disabled="busy"
-                        title="这不是硬性必做，降为普通通知"
-                        @click.stop="setObligation([task], 'optional')"
-                      >
-                        ↓ 通知
-                      </button>
+                      <!-- 必做事项不提供手动降级为普通通知 -->
                       <button
                         class="row-btn row-btn-done"
-                        :disabled="busy"
+                        :disabled="busy || stamping[task.id]"
                         title="标记为已完成"
-                        @click.stop="applyStatusToTasks([task], 'done', '标记为已完成')"
+                        @click.stop="completeWithStamp(task)"
                       >
                         ✓ 完成
                       </button>
@@ -970,7 +1028,13 @@ function describeRun(run) {
                     <div class="inline-edit-row">
                       <input v-model="detailCache[task.id].form.dueDate" type="date" class="input" />
                       <input v-model="detailCache[task.id].form.dueTime" type="time" class="input" />
-                      <select v-model="detailCache[task.id].form.obligation" class="select">
+                      <!-- 已是必做的不能改回普通通知；普通通知仍可升为必做 -->
+                      <span
+                        v-if="isRequired(task)"
+                        class="ob-locked"
+                        title="必做事项不能手动降级为普通通知"
+                      >⚡ 必做事项</span>
+                      <select v-else v-model="detailCache[task.id].form.obligation" class="select">
                         <option value="required">⚡ 必做事项</option>
                         <option value="optional">📌 普通通知</option>
                       </select>
@@ -1084,6 +1148,7 @@ function describeRun(run) {
         </div>
       </div>
     </footer>
+
   </section>
 </template>
 
@@ -1634,8 +1699,22 @@ function describeRun(run) {
 .row-btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--stroke); background: var(--paper-soft); }
 .row-btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--stroke); }
 .row-btn-promote:hover:not(:disabled) { background: var(--marker-lavender); color: var(--pine); }
-.row-btn-demote { background: var(--paper); color: var(--ink-2); border-style: dashed; box-shadow: none; }
-.row-btn-demote:hover:not(:disabled) { background: var(--marker-sky); border-style: solid; color: var(--ink); }
+.ob-locked {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: var(--sketch-radius-sm);
+  border: 1.75px solid var(--stroke);
+  background: var(--marker-yellow);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
 .row-btn-done:hover:not(:disabled) { background: var(--marker-mint); color: var(--wx); }
 .row-btn-ignore:hover:not(:disabled) { background: var(--marker-rose); color: var(--seal); }
 .row-btn-expand.active { background: var(--marker-yellow); }
@@ -1716,6 +1795,46 @@ function describeRun(run) {
 .other-trigger { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); align-self: flex-start; }
 .other-trigger:hover { color: var(--pine); }
 .other-box { overflow: hidden; }
+
+/* ---------- 可玩手账：盖章完成 ---------- */
+.done-stamp {
+  position: absolute;
+  z-index: 4;
+  left: 46%;
+  top: 50%;
+  padding: 2px 14px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--seal);
+  border: 3.5px solid var(--seal);
+  border-radius: var(--sketch-radius-sm);
+  background: rgba(255, 228, 230, 0.82);
+  pointer-events: none;
+  animation: stamp-thump 0.32s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+@keyframes stamp-thump {
+  0% { transform: translate(-50%, -50%) rotate(-16deg) scale(2.6); opacity: 0; }
+  100% { transform: translate(-50%, -50%) rotate(-16deg) scale(1); opacity: 1; }
+}
+.entry-block.is-stamping { animation: row-bump 0.3s ease-out 0.22s; }
+@keyframes row-bump {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(2px); }
+}
+
+/* 扭蛋抽中后定位过来时闪一下 */
+.entry-block.is-flash { animation: row-flash 1.6s ease-out; }
+@keyframes row-flash {
+  0%, 40% { background: var(--marker-yellow); }
+  100% { background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .done-stamp,
+  .entry-block.is-stamping, .entry-block.is-flash { animation: none; transition: none; }
+}
 
 @media (max-width: 1020px) {
   .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

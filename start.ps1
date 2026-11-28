@@ -75,7 +75,9 @@ if (-not $health) {
         $existing = Get-CimInstance Win32_Process -Filter "ProcessId = $existingId" -ErrorAction SilentlyContinue
         if ($existing -and $existing.Name -eq 'node.exe' -and $existing.CommandLine.Contains($serverFile)) { throw '工作台仍在运行，但当前端口没有响应。请先关闭工作台再重新打开。' }
     }
-    $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+    # 免安装包自带 runtime\node\node.exe，优先用它
+    $bundledNode = Join-Path $appRoot 'runtime\node\node.exe'
+    $nodeCommand = if (Test-Path -LiteralPath $bundledNode) { Get-Command -LiteralPath $bundledNode } else { Get-Command node.exe -ErrorAction SilentlyContinue }
     if (-not $nodeCommand) { throw '请先安装 Node.js 24 或更高版本。' }
     $nodeMajor = [int]((& $nodeCommand.Source --version).TrimStart('v').Split('.')[0])
     if ($nodeMajor -lt 24) { throw '请先将 Node.js 升级到 24 或更高版本。' }

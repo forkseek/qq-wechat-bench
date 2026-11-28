@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+from ctypes import wintypes
 import http.cookiejar
 import json
 import os
@@ -23,7 +24,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 CONTROL_FILE = DATA_DIR / "desktop-control.json"
+PET_STATE_FILE = DATA_DIR / "pet-state.json"
 ICON_FILE = DATA_DIR / "xunke-app.ico"
+PET_WIDTH = 240
+PET_HEIGHT = 440  # 角色在中间，上下各留一块透明空位放气泡 / 菜单（贴屏幕顶时翻到下方）
 WEBVIEW_PROFILE_DIR = DATA_DIR / "webview-profile"
 ERROR_LOG_FILE = DATA_DIR / "desktop-error.log"
 STDOUT_LOG_FILE = DATA_DIR / "desktop-runtime.log"
@@ -56,7 +60,6 @@ def _ensure_stdio() -> None:
         pass
 
 
-_ensure_stdio()
 
 
 def log_error(context: str, err: BaseException | None = None) -> None:
@@ -77,6 +80,8 @@ def get_desktop_name() -> str:
     try:
         user32 = ctypes.windll.user32
         kernel32 = ctypes.windll.kernel32
+        user32.GetThreadDesktop.restype = wintypes.HANDLE
+        user32.GetUserObjectInformationW.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
         h_desk = user32.GetThreadDesktop(kernel32.GetCurrentThreadId())
         if not h_desk:
             return "default"
@@ -95,18 +100,32 @@ def acquire_single_instance_mutex() -> bool:
     global _MUTEX_HANDLE
     if os.name != "nt":
         return True
-    try:
-        mutex_name = f"Local\\XunkeWorkbenchDesktopShellMutex_{get_desktop_name()}"
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.CreateMutexW(None, True, mutex_name)
-        last_err = kernel32.GetLastError()
-        _MUTEX_HANDLE = handle
-        return last_err != ERROR_ALREADY_EXISTS
-    except Exception:
-        return True
+    mutex_name = f"Local\\XunkeWorkbenchDesktopShellMutex_{get_desktop_name()}"
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel.CreateMutexW.restype = wintypes.HANDLE
+    handle = kernel.CreateMutexW(None, False, mutex_name)
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    if ctypes.get_last_error() == ERROR_ALREADY_EXISTS:
+        kernel.CloseHandle(wintypes.HANDLE(handle))
+        return False
+    _MUTEX_HANDLE = handle
+    return True
+
+
+def control_path() -> Path:
+    session = wintypes.DWORD()
+    if os.name == "nt" and not ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(session)):
+        raise ctypes.WinError()
+    return CONTROL_FILE.with_name(f"desktop-control-{session.value}-{get_desktop_name()}.json")
 
 
 def _find_node_exe() -> str:
+    # 发给别人的免安装包会把 node.exe 放在 runtime\node 里，优先用它
+    bundled = ROOT / "runtime" / "node" / "node.exe"
+    if bundled.is_file():
+        return str(bundled)
     found = shutil.which("node") or shutil.which("node.exe")
     if found:
         return found
@@ -287,6 +306,7 @@ class BackendGuard:
         self._wake = threading.Event()
         self._stopping = threading.Event()
         self._thread = None
+        self._restart_lock = threading.Lock()
 
     def start(self) -> None:
         if self._thread is None:
@@ -296,6 +316,10 @@ class BackendGuard:
     def stop(self) -> None:
         self._stopping.set()
         self._wake.set()
+
+        # 等正在执行的拉起操作结束，再由退出流程关闭后台。
+        with self._restart_lock:
+            pass
 
     def request_restart(self) -> None:
         """用户明确要求：忽略停止标记和歇手状态，马上检查一次。"""
@@ -355,7 +379,10 @@ class BackendGuard:
         self._attempts.append(now)
         self.state = "restarting"
         log_restart("后台连不上，" + ("按用户要求重启" if manual else f"自动重启（第 {len(self._attempts)} 次）"))
-        ok = self.ensure(self.runtime)
+        with self._restart_lock:
+            if self._stopping.is_set():
+                return
+            ok = self.ensure(self.runtime)
         if self._stopping.is_set():
             return
         self._next_at = time.time() + self.WAITS[min(len(self._attempts), len(self.WAITS) - 1)]
@@ -388,132 +415,108 @@ def stop_backend() -> None:
         pass
 
 
+# 图标版本：换图标时改这里，旧的 .ico 会被自动重画（快捷方式和开机自启都指向同一个文件名）
+ICON_VERSION = "c-calendar-tick-1"
+ICON_SIZES = (16, 24, 32, 48, 64, 128, 256)
+
+
 def make_seal_image(size: int = 64):
-    """绘制松柏底 + 朱砂印章「讯」图标，用于系统托盘和 .ico。"""
-    from PIL import Image, ImageDraw, ImageFont
+    """手账风台历 + 绿色大勾（图标 C，和 assets/icon/xunke-icon.svg 一致），用于系统托盘和 .ico。
 
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    pad = max(2, size // 16)
-    radius = max(6, size // 5)
-    draw.rounded_rectangle([pad, pad, size - pad, size - pad], radius=radius, fill=(23, 50, 39, 255))
-    inner = max(6, size // 7)
-    draw.rounded_rectangle(
-        [inner, inner, size - inner, size - inner],
-        radius=max(4, size // 9),
-        fill=(184, 59, 40, 255),
-        outline=(247, 240, 230, 140),
-        width=max(1, size // 32),
-    )
-    font = None
-    for candidate in (
-        "C:/Windows/Fonts/simkai.ttf",
-        "C:/Windows/Fonts/msyhbd.ttc",
-        "C:/Windows/Fonts/msyh.ttc",
-    ):
-        if Path(candidate).is_file():
-            try:
-                font = ImageFont.truetype(candidate, int(size * 0.48))
-                break
-            except Exception:
-                pass
-    if font is not None:
-        bbox = draw.textbbox((0, 0), "讯", font=font)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        tx = (size - tw) / 2 - bbox[0]
-        ty = (size - th) / 2 - bbox[1]
-        draw.text((tx, ty), "讯", font=font, fill=(253, 248, 242, 255))
-    else:
-        c = size // 2
-        r = size // 6
-        draw.rectangle([c - r, c - r, c + r, c + r], outline=(253, 248, 242, 255), width=max(2, size // 16))
-    return img
+    按 256 的设计稿坐标画在 4 倍大画布上再缩小，边缘才不会有锯齿。
+    """
+    from PIL import Image, ImageDraw
+
+    ink, page, rose, mint = (35, 33, 30, 255), (255, 253, 245, 255), (251, 113, 133, 255), (134, 239, 172, 255)
+    big = size * 4
+    k = big / 256
+
+    def s(*v):
+        return [round(n * k) for n in v]
+
+    img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+
+    def stroke(points, width, color):
+        pts = [tuple(s(x, y)) for x, y in points]
+        w = max(1, round(width * k))
+        d.line(pts, fill=color, width=w, joint="curve")
+        r = w / 2
+        for x, y in (pts[0], pts[-1]):
+            d.ellipse([x - r, y - r, x + r, y + r], fill=color)
+
+    # 右下实心墨影
+    d.rounded_rectangle(s(34, 48, 230, 238), radius=round(30 * k), fill=ink)
+    # 纸面
+    d.rounded_rectangle(s(22, 36, 218, 226), radius=round(30 * k), fill=page)
+    # 玫红页眉 + 分隔线
+    d.rounded_rectangle(s(22, 36, 218, 92), radius=round(30 * k), fill=rose, corners=(True, True, False, False))
+    d.rectangle(s(22, 85, 218, 99), fill=ink)
+    # 外框（描边居中 14 → 往外扩 7）
+    d.rounded_rectangle(s(15, 29, 225, 233), radius=round(37 * k), outline=ink, width=round(14 * k))
+    # 两个装订环
+    stroke([(80, 14), (80, 58)], 18, ink)
+    stroke([(160, 14), (160, 58)], 18, ink)
+    # 大勾：先粗墨边再荧光绿
+    check = [(66, 154), (106, 192), (178, 116)]
+    stroke(check, 34, ink)
+    stroke(check, 18, mint)
+    return img.resize((size, size), Image.LANCZOS)
 
 
-def ensure_ico_file() -> Path:
+def ensure_ico_file(force: bool = False) -> Path:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not ICON_FILE.exists():
-        img = make_seal_image(256)
-        img.save(ICON_FILE, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    ver_file = ICON_FILE.with_name(ICON_FILE.name + ".ver")
+    try:
+        current = ver_file.read_text(encoding="utf-8").strip()
+    except Exception:
+        current = ""
+    if force or not ICON_FILE.exists() or current != ICON_VERSION:
+        # 每个尺寸单独画（小尺寸直接按原尺寸缩，比从 256 一刀缩下来清楚）
+        images = [make_seal_image(n) for n in ICON_SIZES]
+        images[-1].save(ICON_FILE, format="ICO", sizes=[(n, n) for n in ICON_SIZES], append_images=images[:-1])
+        ver_file.write_text(ICON_VERSION, encoding="utf-8")
+        refresh_shell_icons()
     return ICON_FILE
 
 
-def _is_pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
+def refresh_shell_icons() -> None:
+    """让资源管理器重新读图标（桌面快捷方式换图标后不用重启电脑）。"""
     if os.name != "nt":
-        try:
-            os.kill(pid, 0)
-            return True
-        except OSError:
-            return False
-    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-    STILL_ACTIVE = 259
-    kernel32 = ctypes.windll.kernel32
-    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
-    if not handle:
-        return False
-    try:
-        code = ctypes.c_ulong()
-        if kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
-            return code.value == STILL_ACTIVE
-        return False
-    finally:
-        kernel32.CloseHandle(handle)
-
-
-def _cleanup_stale_pid(stale_pid: int) -> None:
-    if stale_pid <= 0 or stale_pid == os.getpid() or not _is_pid_alive(stale_pid):
         return
     try:
-        subprocess.run(
-            ["taskkill", "/F", "/PID", str(stale_pid)],
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=3,
-        )
+        ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)  # SHCNE_ASSOCCHANGED
     except Exception:
         pass
 
 
-def send_control_command(cmd: str, cleanup_on_fail: bool = True) -> bool:
-    """尝试向当前桌面上已运行的桌面壳实例发送控制指令；若为其他桌面残留进程则自动清理。"""
-    if not CONTROL_FILE.exists():
-        return False
-    stale_pid = 0
+def send_control_command(cmd: str) -> bool:
+    path = control_path()
+    # 升级时仍能唤醒正在运行的旧版本；只有持有互斥体的实例可以发布新记录。
+    if not path.exists():
+        path = CONTROL_FILE
     try:
-        info = json.loads(CONTROL_FILE.read_text(encoding="utf-8"))
-        port = int(info["port"])
-        token = str(info["token"])
-        stale_pid = int(info.get("pid") or 0)
-        owner_desktop = info.get("desktop")
-        current_desktop = get_desktop_name()
-        if stale_pid and not _is_pid_alive(stale_pid):
-            CONTROL_FILE.unlink(missing_ok=True)
+        info = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(info, dict) or info.get("desktop") != get_desktop_name():
             return False
-        # 如果残留进程是在非当前 Win32 桌面（如后台测试沙箱）启动的，直接清理，绝不阻塞真实桌面
-        if cmd != "quit" and owner_desktop and owner_desktop != current_desktop:
-            if stale_pid:
-                _cleanup_stale_pid(stale_pid)
-            CONTROL_FILE.unlink(missing_ok=True)
-            return False
-        with socket.create_connection(("127.0.0.1", port), timeout=0.6) as sock:
-            sock.sendall((json.dumps({"token": token, "cmd": cmd}) + "\n").encode("utf-8"))
-            reply = sock.recv(64).decode("utf-8", errors="ignore").strip()
-            if reply == "OK":
-                return True
-    except Exception:
-        pass
-    if cleanup_on_fail:
-        if stale_pid:
-            _cleanup_stale_pid(stale_pid)
-        try:
-            CONTROL_FILE.unlink(missing_ok=True)
-        except Exception:
-            pass
-    return False
+        with socket.create_connection(("127.0.0.1", int(info["port"])), timeout=0.6) as sock:
+            sock.sendall((json.dumps({"token": info["token"], "cmd": cmd}) + "\n").encode())
+            with sock.makefile("rb") as stream:
+                return stream.readline(64) == b"OK\n"
+    except (OSError, ValueError, KeyError, TypeError, OverflowError):
+        return False
+
+
+def claim_or_notify(cmd: str, timeout: float = 40.0) -> str:
+    deadline = time.monotonic() + timeout
+    while True:
+        if acquire_single_instance_mutex():
+            return "owner"
+        if send_control_command(cmd):
+            return "delivered"
+        if time.monotonic() >= deadline:
+            return "unavailable"
+        time.sleep(0.2)
 
 
 def get_screen_size() -> tuple[int, int]:
@@ -524,10 +527,136 @@ def get_screen_size() -> tuple[int, int]:
         return 1366, 768
 
 
+def get_work_area() -> tuple[int, int, int, int]:
+    """返回 Windows 主屏可用工作区 (left, top, right, bottom)，避开任务栏。"""
+    sw, sh = get_screen_size()
+    if os.name != "nt":
+        return 0, 0, sw, max(200, sh - 48)
+    try:
+        rect = wintypes.RECT()
+        if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0):
+            return int(rect.left), int(rect.top), int(rect.right), int(rect.bottom)
+    except Exception:
+        pass
+    return 0, 0, sw, max(200, sh - 48)
+
+
+def pet_work_area(x: int, y: int, w: int, h: int, hwnd: int = 0) -> tuple[int, int, int, int]:
+    if os.name == "nt":
+        from pet_touch import _SameDpiAs, _work_area_at
+        with _SameDpiAs(hwnd):
+            return _work_area_at(x + w / 2, y + h / 2)
+    return get_work_area()
+
+
+def _get_hwnd_rect(hwnd: int) -> tuple[int, int, int, int] | None:
+    if not hwnd or os.name != "nt":
+        return None
+    try:
+        from pet_touch import _SameDpiAs, _rect
+        with _SameDpiAs(hwnd):
+            return _rect(hwnd)
+    except Exception:
+        pass
+    return None
+
+
+def _move_hwnd(hwnd: int, x: int, y: int, on_top: bool) -> None:
+    if not hwnd or os.name != "nt":
+        return
+    try:
+        from pet_touch import _SameDpiAs
+        with _SameDpiAs(hwnd):
+            ctypes.windll.user32.SetWindowPos(hwnd, HWND_TOPMOST if on_top else HWND_NOTOPMOST,
+                                               int(x), int(y), 0, 0, SWP_NOSIZE | SWP_NOACTIVATE)
+    except Exception:
+        pass
+
+
+def _apply_pet_window_style(win, on_top: bool) -> None:
+    """为桌宠 WinForms 窗口启用 TransparencyKey 透明抠图 + 隐藏任务栏图标 + 置顶状态。"""
+    if not win or os.name != "nt":
+        return
+    try:
+        form = getattr(win, "native", None)
+        if form is None:
+            return
+        from System import Action
+        from System.Drawing import Color
+
+        key_color = Color.FromArgb(1, 2, 3)
+
+        def configure():
+            try:
+                form.ShowInTaskbar = False
+                form.BackColor = key_color
+                form.TransparencyKey = key_color
+                form.TopMost = bool(on_top)
+                if getattr(form, "webview", None) is not None:
+                    form.webview.DefaultBackgroundColor = Color.Transparent
+            except Exception as err:
+                log_error("configure_pet_form", err)
+
+        if getattr(form, "InvokeRequired", False):
+            form.Invoke(Action(configure))
+        else:
+            configure()
+
+        hwnd = _get_hwnd(win)
+        if hwnd:
+            GWL_EXSTYLE = -20
+            WS_EX_TOOLWINDOW = 0x00000080
+            WS_EX_APPWINDOW = 0x00040000
+            user32 = ctypes.windll.user32
+            ex = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW)
+            _set_hwnd_topmost(hwnd, on_top)
+    except Exception as err:
+        log_error("apply_pet_window_style", err)
+
+
+def load_pet_state() -> dict:
+    wl, wt, wr, wb = get_work_area()
+    default_x = max(wl + 16, wr - PET_WIDTH - 24)
+    default_y = max(wt + 16, wb - PET_HEIGHT - 12)
+    state = {"visible": True, "on_top": True, "x": default_x, "y": default_y}
+    try:
+        if PET_STATE_FILE.is_file():
+            raw = json.loads(PET_STATE_FILE.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                if isinstance(raw.get("visible"), bool):
+                    state["visible"] = raw["visible"]
+                if isinstance(raw.get("on_top"), bool):
+                    state["on_top"] = raw["on_top"]
+                if all(isinstance(raw.get(k), (int, float)) for k in ("x", "y")):
+                    wl, wt, wr, wb = pet_work_area(raw["x"], raw["y"], PET_WIDTH, PET_HEIGHT)
+                if isinstance(raw.get("x"), (int, float)):
+                    state["x"] = int(max(wl - 40, min(wr - 60, raw["x"])))
+                if isinstance(raw.get("y"), (int, float)):
+                    state["y"] = int(max(wt - 20, min(wb - 80, raw["y"])))
+    except Exception:
+        pass
+    return state
+
+
+def save_pet_state(state: dict) -> None:
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        PET_STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
 def _get_hwnd(win) -> int:
     try:
-        if win and getattr(win, "native", None) is not None:
-            return int(win.native.Handle.ToInt32())
+        form = getattr(win, "native", None)
+        if form is None or form.IsDisposed or not form.IsHandleCreated:
+            return 0
+        from System import Func, IntPtr
+        def read_handle():
+            return form.Handle if form.IsHandleCreated and not form.IsDisposed else IntPtr.Zero
+        handle = form.Invoke(Func[IntPtr](read_handle)) if form.InvokeRequired else read_handle()
+        return int(handle.ToInt64())
     except Exception:
         pass
     return 0
@@ -642,6 +771,44 @@ class JsBridge:
     def set_widget_on_top(self, value: bool) -> bool:
         return self._shell.set_widget_on_top(value)
 
+    def show_pet(self) -> bool:
+        return self._shell.show_pet()
+
+    def hide_pet(self) -> bool:
+        return self._shell.hide_pet()
+
+    def toggle_pet(self) -> bool:
+        return self._shell.toggle_pet()
+
+    def set_pet_on_top(self, value: bool) -> bool:
+        return self._shell.set_pet_on_top(value)
+
+    def get_pet_state(self) -> dict:
+        return self._shell.get_pet_state()
+
+    def get_pet_bounds(self) -> dict:
+        return self._shell.get_pet_bounds()
+
+    def move_pet(self, x: int, y: int, persist: bool = False) -> bool:
+        return self._shell.move_pet(x, y, persist)
+
+    # ---- 桌宠触感层：页面上报可点区域、让身体走路 ----
+    def set_pet_hotzones(self, zones: list, sprite: dict | None = None, ground: float | None = None) -> bool:
+        touch = self._shell.touch
+        if touch:
+            touch.set_zones(zones, sprite, ground)
+        return bool(touch)
+
+    def pet_walk(self, dx: float, speed: float = 70) -> bool:
+        touch = self._shell.touch
+        return bool(touch and touch.walk(float(dx), float(speed)))
+
+    def pet_stop(self) -> bool:
+        touch = self._shell.touch
+        if touch:
+            touch.stop_motion()
+        return True
+
     def backend_state(self) -> str:
         return self._shell.guard.state
 
@@ -660,17 +827,32 @@ class DesktopShell:
         self.guard = BackendGuard(runtime, on_replaced=self._reload_pages)
         self.main_window = None
         self.widget_window = None
+        self.pet_window = None
         self.widget_visible = start_mode == "widget"
         self.widget_on_top = True
+        pet_state = load_pet_state()
+        self.pet_visible = True if start_mode == "pet" else bool(pet_state.get("visible", True))
+        self.pet_on_top = bool(pet_state.get("on_top", True))
+        self.pet_x = int(pet_state["x"])
+        self.pet_y = int(pet_state["y"])
+        self.touch = None  # 桌宠的隐形触感层（pet_touch.PetTouch），窗口起来后再建
+        self._touch_lock = threading.Lock()
+        self._quit_lock = threading.Lock()
         self.quitting = False
         self.tray = None
         self.control_socket = None
         self.control_token = secrets.token_hex(24)
 
-    def show_main(self) -> bool:
+    def show_main(self, intro: bool = False) -> bool:
         if self.guard.state in ("stopped", "failed"):
             self.guard.request_restart()
         if self.main_window:
+            if intro:
+                # 双击程序 / 托盘打开：先在页面里铺好打开动画（public/boot.js），窗口一露面就在播
+                try:
+                    self.main_window.evaluate_js("window.__xunkeBoot && window.__xunkeBoot()")
+                except Exception as err:
+                    log_error("boot intro", err)
             try:
                 self.main_window.show()
                 self.main_window.restore()
@@ -720,7 +902,7 @@ class DesktopShell:
             "if(busy)return false;setTimeout(function(){location.reload()},50);return true})()"
         )
         done = True
-        for win in (self.main_window, self.widget_window):
+        for win in (self.main_window, self.widget_window, self.pet_window):
             if not win or self.quitting:
                 continue
             try:
@@ -735,6 +917,160 @@ class DesktopShell:
             _set_hwnd_topmost(_get_hwnd(self.widget_window), self.widget_on_top)
         return self.widget_on_top
 
+    def _persist_pet_state(self) -> None:
+        save_pet_state({
+            "visible": bool(self.pet_visible),
+            "on_top": bool(self.pet_on_top),
+            "x": int(self.pet_x),
+            "y": int(self.pet_y),
+        })
+
+    def show_pet(self) -> bool:
+        self.pet_visible = True
+        self._persist_pet_state()
+        if self.pet_window:
+            try:
+                _apply_pet_window_style(self.pet_window, self.pet_on_top)
+                self.pet_window.show()
+                _move_hwnd(_get_hwnd(self.pet_window), self.pet_x, self.pet_y, self.pet_on_top)
+            except Exception as err:
+                log_error("show_pet", err)
+        if self.touch:
+            self.touch.set_visible(True)
+        return True
+
+    def hide_pet(self) -> bool:
+        self.pet_visible = False
+        self._persist_pet_state()
+        if self.touch:
+            self.touch.set_visible(False)
+        if self.pet_window:
+            try:
+                self.pet_window.hide()
+            except Exception as err:
+                log_error("hide_pet", err)
+        return True
+
+    def toggle_pet(self) -> bool:
+        if self.pet_visible:
+            return self.hide_pet()
+        return self.show_pet()
+
+    def set_pet_on_top(self, value: bool) -> bool:
+        self.pet_on_top = bool(value)
+        self._persist_pet_state()
+        if self.pet_window:
+            _apply_pet_window_style(self.pet_window, self.pet_on_top)
+        if self.touch:
+            self.touch.set_on_top(self.pet_on_top)
+        return self.pet_on_top
+
+    def get_pet_state(self) -> dict:
+        return {
+            "visible": bool(self.pet_visible),
+            "on_top": bool(self.pet_on_top),
+            "x": int(self.pet_x),
+            "y": int(self.pet_y),
+        }
+
+    def get_pet_bounds(self) -> dict:
+        sw, sh = get_screen_size()
+        hwnd = _get_hwnd(self.pet_window)
+        rect = _get_hwnd_rect(hwnd)
+        if rect:
+            x, y, w, h = rect
+            self.pet_x, self.pet_y = x, y
+        else:
+            x, y, w, h = self.pet_x, self.pet_y, PET_WIDTH, PET_HEIGHT
+        wl, wt, wr, wb = pet_work_area(x, y, w, h, hwnd)
+        return {
+            "x": int(x),
+            "y": int(y),
+            "width": int(w),
+            "height": int(h),
+            "screenWidth": int(sw),
+            "screenHeight": int(sh),
+            "workLeft": int(wl),
+            "workTop": int(wt),
+            "workRight": int(wr),
+            "workBottom": int(wb),
+        }
+
+    def move_pet(self, x: int, y: int, persist: bool = False) -> bool:
+        if self.touch and self.touch.running:
+            self.touch.move_to(x, y)
+            if persist:
+                self._persist_pet_state()
+            return True
+        hwnd = _get_hwnd(self.pet_window)
+        rect = _get_hwnd_rect(hwnd)
+        cur_w = rect[2] if rect else PET_WIDTH
+        cur_h = rect[3] if rect else PET_HEIGHT
+        wl, wt, wr, wb = pet_work_area(x, y, cur_w, cur_h, hwnd)
+        clamped_x = int(max(wl - 48, min(wr - cur_w + 48, round(x))))
+        clamped_y = int(max(wt - 30, min(wb - cur_h + 24, round(y))))
+        self.pet_x = clamped_x
+        self.pet_y = clamped_y
+        if hwnd:
+            _move_hwnd(hwnd, clamped_x, clamped_y, self.pet_on_top)
+        if persist:
+            self._persist_pet_state()
+        return True
+
+    def pet_handle(self) -> int:
+        return _get_hwnd(self.pet_window)
+
+    def restore_pet_style(self):
+        _apply_pet_window_style(self.pet_window, self.pet_on_top)
+
+    def _start_pet_touch(self) -> bool:
+        """给桌宠装上隐形触感层（只在 Windows 上；失败就保持老样子，不影响别的窗口）。
+        透明窗口是先藏着、导航时才真正建出来的，刚启动时可能还拿不到句柄，所以拿不到就返回 False 让调用方重试。"""
+        if not self.pet_window or os.name != "nt" or self.quitting:
+            return True
+        with self._touch_lock:
+            if self.touch and self.touch.running:
+                return True
+            hwnd = _get_hwnd(self.pet_window)
+            if not hwnd:
+                return False
+            try:
+                from pet_touch import PetTouch
+
+                if not self.touch:
+                    self.touch = PetTouch(self, PET_WIDTH, PET_HEIGHT, log_error)
+                self.touch.start(hwnd, self.pet_visible, self.pet_on_top)
+                return self.touch.running
+            except Exception as err:
+                self.touch = None
+                log_error("start pet touch", err)
+                return True
+
+    def _start_pet_touch_soon(self) -> None:
+        def worker():
+            for _ in range(60):  # 最多等 30 秒
+                if self._start_pet_touch():
+                    return
+                time.sleep(0.5)
+            log_error("start pet touch: pet window handle never became available")
+
+        threading.Thread(target=worker, name="pet-touch-start", daemon=True).start()
+
+    def _on_pet_loaded(self):
+        if not self.pet_window:
+            return
+        _apply_pet_window_style(self.pet_window, self.pet_on_top)
+        _move_hwnd(_get_hwnd(self.pet_window), self.pet_x, self.pet_y, self.pet_on_top)
+        if self.touch and self.touch.running:
+            self.touch.fit_pet_size()
+        else:
+            self._start_pet_touch_soon()
+        if not self.pet_visible:
+            try:
+                self.pet_window.hide()
+            except Exception:
+                pass
+
     # ---- Window Close Interceptors ----
     def _on_main_closing(self):
         if self.quitting:
@@ -748,6 +1084,12 @@ class DesktopShell:
         threading.Thread(target=self.hide_widget, daemon=True).start()
         return False
 
+    def _on_pet_closing(self):
+        if self.quitting:
+            return True
+        threading.Thread(target=self.hide_pet, daemon=True).start()
+        return False
+
     # ---- Single-instance local control listener ----
     def _start_control_server(self):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -756,7 +1098,9 @@ class DesktopShell:
         srv.listen(5)
         port = srv.getsockname()[1]
         self.control_socket = srv
-        CONTROL_FILE.write_text(
+        record = control_path()
+        pending = record.with_suffix(f".{os.getpid()}.tmp")
+        pending.write_text(
             json.dumps({
                 "port": port,
                 "token": self.control_token,
@@ -765,6 +1109,8 @@ class DesktopShell:
             }),
             encoding="utf-8",
         )
+
+        pending.replace(record)
 
         def serve():
             while not self.quitting:
@@ -777,7 +1123,9 @@ class DesktopShell:
                     break
                 with conn:
                     try:
-                        raw = conn.recv(1024).decode("utf-8", errors="ignore").strip()
+                        conn.settimeout(1.0)
+                        with conn.makefile("rb") as stream:
+                            raw = stream.readline(1024)
                         msg = json.loads(raw)
                         if msg.get("token") != self.control_token:
                             conn.sendall(b"DENY\n")
@@ -785,13 +1133,19 @@ class DesktopShell:
                         cmd = msg.get("cmd")
                         conn.sendall(b"OK\n")
                         if cmd == "show_main":
-                            threading.Thread(target=self.show_main, daemon=True).start()
+                            threading.Thread(target=self.show_main, kwargs={"intro": True}, daemon=True).start()
                         elif cmd == "show_widget":
                             threading.Thread(target=self.show_widget, daemon=True).start()
                         elif cmd == "toggle_widget":
                             threading.Thread(target=self.toggle_widget, daemon=True).start()
+                        elif cmd == "show_pet":
+                            threading.Thread(target=self.show_pet, daemon=True).start()
+                        elif cmd == "toggle_pet":
+                            threading.Thread(target=self.toggle_pet, daemon=True).start()
                         elif cmd == "quit":
                             threading.Thread(target=self.quit_app, daemon=True).start()
+                    except (TimeoutError, ConnectionError):
+                        continue
                     except Exception as err:
                         log_error("control_server", err)
 
@@ -813,8 +1167,9 @@ class DesktopShell:
 
         icon_img = make_seal_image(64)
         menu = pystray.Menu(
-            pystray.MenuItem("打开讯课主工作台", lambda icon, item: threading.Thread(target=self.show_main, daemon=True).start(), default=True),
+            pystray.MenuItem("打开讯课主工作台", lambda icon, item: threading.Thread(target=self.show_main, kwargs={"intro": True}, daemon=True).start(), default=True),
             pystray.MenuItem("显示 / 隐藏迷你待办", lambda icon, item: threading.Thread(target=self.toggle_widget, daemon=True).start()),
+            pystray.MenuItem("显示 / 隐藏日历桌宠", lambda icon, item: threading.Thread(target=self.toggle_pet, daemon=True).start()),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("开启 / 停止 QQ 采集", lambda icon, item: threading.Thread(target=self._toggle_qq_capture, daemon=True).start()),
             pystray.MenuItem("在浏览器中打开", lambda icon, item: webbrowser.open(self.base_url)),
@@ -825,9 +1180,10 @@ class DesktopShell:
         threading.Thread(target=self.tray.run, daemon=True).start()
 
     def quit_app(self):
-        if self.quitting:
-            return
-        self.quitting = True
+        with self._quit_lock:
+            if self.quitting:
+                return
+            self.quitting = True
         # 先停看护，否则刚关掉的后台又会被拉起来。
         self.guard.stop()
         try:
@@ -836,7 +1192,9 @@ class DesktopShell:
         except Exception:
             pass
         try:
-            CONTROL_FILE.unlink(missing_ok=True)
+            path = control_path()
+            if json.loads(path.read_text(encoding="utf-8")).get("token") == self.control_token:
+                path.unlink(missing_ok=True)
         except Exception:
             pass
         try:
@@ -844,8 +1202,13 @@ class DesktopShell:
                 self.tray.stop()
         except Exception:
             pass
+        if self.touch:
+            try:
+                self.touch.stop()
+            except Exception:
+                pass
         # 先藏窗口、关好后台，最后才销毁窗口：窗口一没主进程就会退出，后面的收尾来不及做。
-        for win in (self.widget_window, self.main_window):
+        for win in (self.pet_window, self.widget_window, self.main_window):
             if win:
                 try:
                     win.hide()
@@ -861,7 +1224,7 @@ class DesktopShell:
         except Exception:
             pass
         stop_backend()
-        for win in (self.widget_window, self.main_window):
+        for win in (self.pet_window, self.widget_window, self.main_window):
             if win:
                 try:
                     win.destroy()
@@ -873,8 +1236,6 @@ class DesktopShell:
 
         ensure_ico_file()
         WEBVIEW_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
-        if not self.control_socket:
-            self._start_control_server()
         sw, sh = get_screen_size()
         main_w = min(1240, max(920, sw - 90))
         main_h = min(780, max(600, sh - 100))
@@ -905,16 +1266,46 @@ class DesktopShell:
             hidden=(self.start_mode != "widget"),
             background_color="#FAF5E8",
         )
+        self.pet_window = webview.create_window(
+            "讯课 · 日历小助手",
+            url=self.base_url + "/pet",
+            js_api=self.bridge,
+            width=PET_WIDTH,
+            height=PET_HEIGHT,
+            x=self.pet_x,
+            y=self.pet_y,
+            resizable=False,
+            frameless=True,
+            easy_drag=False,
+            shadow=False,
+            focus=False,
+            on_top=self.pet_on_top,
+            transparent=True,
+            hidden=(not self.pet_visible),
+        )
         self.main_window.events.closing += self._on_main_closing
         self.widget_window.events.closing += self._on_widget_closing
+        self.pet_window.events.closing += self._on_pet_closing
+        self.pet_window.events.loaded += self._on_pet_loaded
 
         def on_started():
             self._start_tray()
             self.guard.start()
+            _apply_pet_window_style(self.pet_window, self.pet_on_top)
+            if self.pet_visible:
+                _move_hwnd(_get_hwnd(self.pet_window), self.pet_x, self.pet_y, self.pet_on_top)
+            else:
+                try:
+                    self.pet_window.hide()
+                except Exception:
+                    pass
+            self._start_pet_touch_soon()
             if self.start_mode == "main":
                 _bring_hwnd_to_front(_get_hwnd(self.main_window), keep_topmost=False)
             elif self.start_mode == "widget":
                 _bring_hwnd_to_front(_get_hwnd(self.widget_window), keep_topmost=True)
+
+            self._start_control_server()
 
         webview.start(
             on_started,
@@ -926,8 +1317,10 @@ class DesktopShell:
 
 
 def main() -> int:
+    _ensure_stdio()
     parser = argparse.ArgumentParser(description="讯课工作台桌面外壳")
     parser.add_argument("--widget", action="store_true", help="打开迷你待办小窗")
+    parser.add_argument("--pet", action="store_true", help="打开桌面日历小助手宠物")
     parser.add_argument("--background", action="store_true", help="后台启动到系统托盘（开机自启使用）")
     parser.add_argument("--quit", action="store_true", help="退出运行中的桌面壳与服务")
     parser.add_argument("--prepare-icon", action="store_true", help="仅生成桌面图标 .ico 后退出")
@@ -939,30 +1332,22 @@ def main() -> int:
             print(str(ico))
             return 0
 
+        target_cmd = ("quit" if args.quit else "noop" if args.background else
+                      "show_pet" if args.pet else "show_widget" if args.widget else "show_main")
+        result = claim_or_notify(target_cmd)
+        if result == "delivered":
+            return 0
+        if result == "unavailable":
+            log_error("existing desktop instance did not acknowledge " + target_cmd)
+            return 1
         if args.quit:
-            if not send_control_command("quit"):
-                stop_backend()
-            return 0
-
-        target_cmd = "noop" if args.background else ("show_widget" if args.widget else "show_main")
-
-        # 1. 通过当前桌面命名互斥体防止连点拉起多个进程
-        if not acquire_single_instance_mutex():
-            deadline = time.time() + 8.0
-            while time.time() < deadline:
-                if send_control_command(target_cmd, cleanup_on_fail=False):
-                    return 0
-                time.sleep(0.2)
-            return 0
-
-        # 2. 已持有当前桌面唯一实例互斥体，若仍有旧实例或跨桌面残留进程则唤醒或清理
-        if send_control_command(target_cmd, cleanup_on_fail=True):
+            control_path().unlink(missing_ok=True)
+            stop_backend()
             return 0
 
         runtime = load_runtime()
-        mode = "widget" if args.widget else "background" if args.background else "main"
+        mode = "pet" if args.pet else "widget" if args.widget else "background" if args.background else "main"
         shell = DesktopShell(runtime, mode)
-        shell._start_control_server()
 
         if not ensure_backend(runtime):
             log_error("ensure_backend failed")

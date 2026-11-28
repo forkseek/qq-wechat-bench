@@ -16,7 +16,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: path.join(root, 'frontend', 'index.html'),
-        widget: path.join(root, 'frontend', 'widget.html')
+        widget: path.join(root, 'frontend', 'widget.html'),
+        pet: path.join(root, 'frontend', 'pet.html')
       }
     }
   },

@@ -1,6 +1,7 @@
-export async function api(path, body = undefined, method = body === undefined ? 'GET' : 'POST') {
+export async function api(path, body = undefined, method = body === undefined ? 'GET' : 'POST', signal = undefined) {
   const options = {
     method,
+    signal,
     credentials: 'same-origin',
     headers: {}
   };

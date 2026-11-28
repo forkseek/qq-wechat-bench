@@ -67,12 +67,12 @@ test('调用 DeepSeek 时关闭思考模式；其他服务不发该参数；空�
   const reply = content => new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] }), { status: 200 });
   const fetcher = async (url, request) => { bodies.push({ host: url.hostname, ...JSON.parse(request.body) });
     return reply(bodies.length === 1 ? '' : JSON.stringify({ summary: '', tasks: [candidate(batch.pending[0])] })); };
-  const deepseek = modelConfig({ MODEL_ENABLED: 'true', MODEL_BASE_URL: 'https://api.deepseek.com', MODEL_NAME: 'deepseek-flash', MODEL_API_KEY: 'k' });
+  const deepseek = modelConfig({ MODEL_ENABLED: 'true', MODEL_ALLOW_CLOUD: 'true', MODEL_BASE_URL: 'https://api.deepseek.com', MODEL_NAME: 'deepseek-flash', MODEL_API_KEY: 'k' });
   assert.equal((await analyzeBatch(deepseek, batch, fetcher)).candidates.length, 1);
   assert.equal(bodies.length, 2);
   assert.deepEqual(bodies[1].thinking, { type: 'disabled' });
   assert.equal(bodies[1].max_tokens, 8000);
-  const other = modelConfig({ MODEL_ENABLED: 'true', MODEL_BASE_URL: 'https://example.com/v1', MODEL_NAME: 'm', MODEL_API_KEY: 'k' });
+  const other = modelConfig({ MODEL_ENABLED: 'true', MODEL_ALLOW_CLOUD: 'true', MODEL_BASE_URL: 'https://example.com/v1', MODEL_NAME: 'm', MODEL_API_KEY: 'k' });
   await analyzeBatch(other, batch, fetcher);
   assert.equal('thinking' in bodies[2], false);
   store.close();

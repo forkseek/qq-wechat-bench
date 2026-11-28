@@ -9,7 +9,7 @@ const props = defineProps({
   state: { type: Object, required: true },
   initialSubTab: { type: String, default: 'connections' } // 'connections' | 'logs' | 'maintenance'
 });
-const emit = defineEmits(['refresh', 'navigate', 'toast']);
+const emit = defineEmits(['refresh', 'navigate', 'toast', 'open-onboarding']);
 
 const subTab = ref(props.initialSubTab || 'connections');
 watch(() => props.initialSubTab, v => { if (v) subTab.value = v; });
@@ -17,7 +17,9 @@ watch(() => props.initialSubTab, v => { if (v) subTab.value = v; });
 const presets = computed(() => props.state?.settings?.modelPresets || []);
 const modelForm = ref({
   preset: 'custom',
-  enabled: true,
+  enabled: false,
+  allowCloud: false,
+  clearKey: false,
   baseUrl: '',
   name: '',
   key: ''
@@ -34,7 +36,9 @@ watch(() => props.state?.model, m => {
   const matched = presets.value.find(p => p.baseUrl === m.baseUrl);
   modelForm.value = {
     preset: matched ? matched.id : (m.baseUrl ? 'custom' : (presets.value[0]?.id || 'custom')),
-    enabled: m.enabled !== false,
+    enabled: m.enabled === true,
+    allowCloud: m.allowCloud === true,
+    clearKey: false,
     baseUrl: m.baseUrl || presets.value[0]?.baseUrl || '',
     name: m.name || presets.value[0]?.name || '',
     key: ''
@@ -45,9 +49,17 @@ function onPresetChange() {
   modelDirty.value = true;
   const found = presets.value.find(p => p.id === modelForm.value.preset);
   if (found) {
+    if (modelForm.value.baseUrl !== found.baseUrl) changeModelEndpoint();
     modelForm.value.baseUrl = found.baseUrl;
     modelForm.value.name = found.name;
   }
+}
+
+function changeModelEndpoint() {
+  modelDirty.value = true;
+  modelForm.value.allowCloud = false;
+  modelForm.value.clearKey = false;
+  modelForm.value.key = '';
 }
 
 async function runAction(name, fn, successMsg) {
@@ -71,6 +83,8 @@ async function testAI() {
   try {
     const res = await api('/api/model/test', {
       enabled: modelForm.value.enabled,
+      allowCloud: modelForm.value.allowCloud,
+      clearKey: modelForm.value.clearKey,
       baseUrl: modelForm.value.baseUrl,
       name: modelForm.value.name,
       key: modelForm.value.key
@@ -88,12 +102,15 @@ async function saveAI() {
   try {
     await api('/api/model', {
       enabled: modelForm.value.enabled,
+      allowCloud: modelForm.value.allowCloud,
+      clearKey: modelForm.value.clearKey,
       baseUrl: modelForm.value.baseUrl,
       name: modelForm.value.name,
       key: modelForm.value.key
     }, 'PUT');
     modelDirty.value = false;
     modelForm.value.key = '';
+    modelForm.value.clearKey = false;
     emit('toast', 'AI 模型配置已保存并立即生效');
     emit('refresh');
   } catch (err) {
@@ -133,6 +150,7 @@ const wxStatusBadge = computed(() => {
         <h1 class="page-title">设置与维护</h1>
         <span class="page-title-accent" aria-hidden="true"></span>
         <p class="page-subtitle">管理微信/QQ 接入、AI 模型、运行日志和数据库定时备份。</p>
+        <button class="btn btn-ghost btn-sm rerun-onboarding" type="button" @click="emit('open-onboarding')">重新走一遍首次引导</button>
       </div>
       <div class="segmented" role="tablist">
         <button class="seg-btn" :class="{ active: subTab === 'connections' }" @click="subTab = 'connections'">接入与 AI</button>
@@ -299,15 +317,25 @@ const wxStatusBadge = computed(() => {
           <div class="field-row">
             <label class="field">
               <span class="field-label">接口地址（HTTPS 或本机地址）</span>
-              <input v-model="modelForm.baseUrl" class="input" placeholder="https://api.deepseek.com" @input="modelDirty = true" />
+              <input v-model="modelForm.baseUrl" class="input" placeholder="http://127.0.0.1:11434/v1" @input="changeModelEndpoint" />
             </label>
             <label class="field">
-              <span class="field-label">API Key（{{ state.model?.hasKey ? '已保存，留空沿用' : '本机模型可留空' }}）</span>
-              <input v-model="modelForm.key" type="password" class="input" autocomplete="off" placeholder="sk-..." @input="modelDirty = true" />
+              <span class="field-label">API Key（同一地址留空时沿用）</span>
+              <input v-model="modelForm.key" :disabled="modelForm.clearKey" type="password" class="input" autocomplete="off" placeholder="sk-..." @input="modelDirty = true" />
             </label>
           </div>
 
-          <div v-if="testResult" class="banner banner-ok"><span>{{ testResult }}</span></div>
+          <label class="toggle-check">
+          <input v-model="modelForm.allowCloud" type="checkbox" @change="modelDirty = true" />
+          <span>允许当前云端服务接收已关注会话的内容</span>
+        </label>
+        <p class="muted setting-sub">云端整理会发送聊天文字、发送者和待办上下文。敏感会话请使用本机模型，或关闭 AI。</p>
+        <label v-if="state.model?.hasKey" class="toggle-check">
+          <input v-model="modelForm.clearKey" type="checkbox" @change="modelDirty = true; if (modelForm.clearKey) modelForm.key = ''" />
+          <span>清除已保存的模型密钥</span>
+        </label>
+
+        <div v-if="testResult" class="banner banner-ok"><span>{{ testResult }}</span></div>
           <div v-if="testError" class="banner banner-err"><span>{{ testError }}</span></div>
 
           <div class="setting-actions">
@@ -351,6 +379,7 @@ const wxStatusBadge = computed(() => {
 </template>
 
 <style scoped>
+.rerun-onboarding { margin-top: 8px; padding-left: 0; text-decoration: underline; text-underline-offset: 3px; }
 .settings-page {
   display: flex;
   flex-direction: column;

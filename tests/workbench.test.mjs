@@ -159,7 +159,7 @@ test('HTTP：本机会话、来源检查、签名上报、关注范围和持久�
   assert.equal(reopened.messages(conversation.id).length, 1); reopened.close();
 });
 
-test('HTTP：在页面中配置 AI，Key 不回传，留空沿用已保存的 Key，重启后仍生效', async t => {
+test('HTTP：云端须授权，密钥绑定到端点并受 Windows 用户保护', { skip: process.platform !== 'win32' }, async t => {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'qq-workbench-test-'));
   const calls = [];
   const fetcher = async (url, request) => { calls.push({ url: String(url), auth: request.headers.Authorization });
@@ -169,7 +169,10 @@ test('HTTP：在页面中配置 AI，Key 不回传，留空沿用已保存的 Ke
   const base = await app.listen(0);
   const cookie = (await fetch(base)).headers.get('set-cookie').split(';')[0];
   const request = (route, body, method = 'POST') => fetch(base + route, { method, headers: { Cookie: cookie, Origin: base, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const settings = { baseUrl: 'https://api.deepseek.com', name: 'deepseek-flash', enabled: true };
+  const settings = { baseUrl: 'https://api.deepseek.com', name: 'deepseek-flash', enabled: true, allowCloud: true };
+  const denied = await request('/api/model/test', { ...settings, allowCloud: false, key: 'sk-test-only' });
+  assert.equal(denied.status, 400);
+  assert.equal(calls.length, 0);
   assert.equal((await request('/api/model', { ...settings, baseUrl: 'http://example.com' }, 'PUT')).status, 400);
   assert.match((await (await request('/api/model', settings, 'PUT')).json()).error, /API Key/);
   assert.equal((await (await request('/api/model/test', { ...settings, key: 'sk-test-only' })).json()).reply, '连接成功，JSON 输出正常');
@@ -177,12 +180,31 @@ test('HTTP：在页面中配置 AI，Key 不回传，留空沿用已保存的 Ke
   const saved = await (await request('/api/model', { ...settings, key: 'sk-test-only' }, 'PUT')).json();
   assert.equal(saved.configured, true); assert.equal(saved.hasKey, true);
   assert.equal((await request('/api/model', { ...settings, name: 'deepseek-v4-pro', key: '' }, 'PUT')).status, 200);
+  const changedHost = await request('/api/model/test', { ...settings, baseUrl: 'https://example.invalid' });
+  const changedPath = await request('/api/model/test', { ...settings, baseUrl: 'https://api.deepseek.com/v1' });
+  assert.equal(changedHost.status, 400);
+  assert.equal(changedPath.status, 400);
+  assert.equal(calls.length, 1);
+  const local = await request('/api/model/test', { ...settings, baseUrl: 'http://127.0.0.1:11434/v1', allowCloud: false });
+  assert.equal(local.status, 200);
+  assert.deepEqual(calls[1], { url: 'http://127.0.0.1:11434/v1/chat/completions', auth: undefined });
   const snapshot = await (await fetch(base + '/api/state', { headers: { Cookie: cookie } })).text();
   assert.equal(snapshot.includes('sk-test-only'), false);
-  assert.equal(JSON.parse(readFileSync(path.join(dataDir, 'model.json'), 'utf8')).key, 'sk-test-only');
+  const persisted = readFileSync(path.join(dataDir, 'model.json'), 'utf8');
+  assert.equal(persisted.includes('sk-test-only'), false);
+  assert.ok(JSON.parse(persisted).protectedKey);
   await app.close();
   app = createApp({ dataDir, supervise: false });
   assert.equal(app.config.configured, true); assert.equal(app.config.name, 'deepseek-v4-pro');
+  assert.equal(app.config.key, 'sk-test-only');
+  const afterRestart = await app.listen(0);
+  const newCookie = (await fetch(afterRestart)).headers.get('set-cookie').split(';')[0];
+  const clear = await fetch(afterRestart + '/api/model', { method: 'PUT',
+    headers: { Cookie: newCookie, Origin: afterRestart, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...settings, enabled: false, allowCloud: false, clearKey: true }) });
+  assert.equal(clear.status, 200);
+  assert.equal((await clear.json()).hasKey, false);
+  assert.equal(JSON.parse(readFileSync(path.join(dataDir, 'model.json'), 'utf8')).protectedKey, undefined);
 });
 
 test('换常驻账号：群会话不拆分，同一条群消息只保存一次（包括早期没有群内序号的消息）', () => {

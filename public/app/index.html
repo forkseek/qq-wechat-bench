@@ -6,12 +6,42 @@
   <meta name="theme-color" content="#163126">
   <title>讯课 · QQ 与微信工作台</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <script type="module" crossorigin src="/app/assets/main-ZbLGlUbj.js"></script>
-  <link rel="modulepreload" crossorigin href="/app/assets/_plugin-vue_export-helper-ZFSpn4HB.js">
-  <link rel="stylesheet" crossorigin href="/app/assets/_plugin-vue_export-helper-DNy683bG.css">
-  <link rel="stylesheet" crossorigin href="/app/assets/main-8P9hRunR.css">
+  <script type="module" crossorigin src="/app/assets/main-p0Y5J3cp.js"></script>
+  <link rel="modulepreload" crossorigin href="/app/assets/_plugin-vue_export-helper-CjNKlWOc.js">
+  <link rel="modulepreload" crossorigin href="/app/assets/levels-DOSIZMih.js">
+  <link rel="stylesheet" crossorigin href="/app/assets/levels-BDI9JLv3.css">
+  <link rel="stylesheet" crossorigin href="/app/assets/main-Bd0ON0kr.css">
+  <link rel="stylesheet" crossorigin href="/app/assets/base-DNy683bG.css">
 </head>
 <body>
   <div id="app"></div>
+  <!-- 打开动画：样式和开关在 src/boot/（由 main.js 最先引入，打包进 /app/assets；CSP 不许内联，后台也只认 assets 目录） -->
+  <div id="xk-boot" aria-hidden="true">
+    <div class="xk-sheet">
+      <div class="xk-scale">
+      <div class="xk-stage">
+        <div class="xk-icon-wrap">
+          <i class="xk-ln l1"></i><i class="xk-ln l2"></i><i class="xk-ln l3"></i><i class="xk-ln l4"></i>
+          <i class="xk-ln l5"></i><i class="xk-ln l6"></i><i class="xk-ln l7"></i><i class="xk-ln l8"></i>
+          <div class="xk-ground"></div>
+          <svg class="xk-icon" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+            <rect x="34" y="48" width="196" height="190" rx="30" fill="#23211e"/>
+            <rect x="22" y="36" width="196" height="190" rx="30" fill="#fffdf5" stroke="#23211e" stroke-width="14"/>
+            <path d="M22 66 C22 49 35 36 52 36 L188 36 C205 36 218 49 218 66 L218 92 L22 92 Z" fill="#fb7185" stroke="#23211e" stroke-width="14" stroke-linejoin="round"/>
+            <line x1="80" y1="14" x2="80" y2="58" stroke="#23211e" stroke-width="18" stroke-linecap="round"/>
+            <line x1="160" y1="14" x2="160" y2="58" stroke="#23211e" stroke-width="18" stroke-linecap="round"/>
+            <path class="xk-tick" pathLength="1" d="M66 154 L106 192 L178 116" fill="none" stroke="#23211e" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+            <path class="xk-tick" pathLength="1" d="M66 154 L106 192 L178 116" fill="none" stroke="#86efac" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="xk-tape">讯课手账</div>
+        <div class="xk-wait">正在打开…</div>
+        <svg class="xk-star s1" viewBox="-12 -12 24 24"><path d="M0 -10 Q2 -2 10 0 Q2 2 0 10 Q-2 2 -10 0 Q-2 -2 0 -10 Z" fill="#fde047" stroke="#23211e" stroke-width="2.2" stroke-linejoin="round"/></svg>
+        <svg class="xk-star s2" viewBox="-12 -12 24 24"><path d="M0 -10 Q2 -2 10 0 Q2 2 0 10 Q-2 2 -10 0 Q-2 -2 0 -10 Z" fill="#fde047" stroke="#23211e" stroke-width="2.2" stroke-linejoin="round"/></svg>
+        <svg class="xk-star s3" viewBox="-12 -12 24 24"><path d="M0 -10 Q2 -2 10 0 Q2 2 0 10 Q-2 2 -10 0 Q-2 -2 0 -10 Z" fill="#86efac" stroke="#23211e" stroke-width="2.2" stroke-linejoin="round"/></svg>
+      </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

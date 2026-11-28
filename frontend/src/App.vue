@@ -5,6 +5,9 @@ import { isStaleHistoricalTask, inferTaskObligation } from './utils/format.js';
 import AssistantDrawer from './components/AssistantDrawer.vue';
 import TaskDetailModal from './components/TaskDetailModal.vue';
 import ProfileModal from './components/ProfileModal.vue';
+import OnboardingWizard from './components/OnboardingWizard.vue';
+import NicknamePrompt from './components/NicknamePrompt.vue';
+import PetCareCard from './components/PetCareCard.vue';
 import ConvRulesModal from './components/ConvRulesModal.vue';
 import AddGroupModal from './components/AddGroupModal.vue';
 import ToastHost from './components/ToastHost.vue';
@@ -32,6 +35,30 @@ const toasts = ref([]);
 
 const taskModal = ref({ open: false, mode: 'edit', taskId: '' });
 const profileModalOpen = ref(false);
+const onboardingOpen = ref(false);
+const nicknamePromptOpen = ref(false);
+const NICK_LATER_KEY = 'xunke.nicknamePromptLater';
+let onboardingChecked = false;
+
+// 第一次打开：全新用户走完整引导；早就在用的老用户只问一句「桌宠怎么叫你」。
+function checkOnboarding(data) {
+  if (onboardingChecked || !data) return;
+  onboardingChecked = true;
+  if (data.onboarding?.done) return;
+  const alreadyUsing = (data.conversations || []).some(c => c.monitored) || Boolean(data.profile?.name) || Boolean(data.model?.configured);
+  if (!alreadyUsing) {
+    onboardingOpen.value = true;
+    return;
+  }
+  if (data.companion?.nickname) return;
+  let laterAt = 0;
+  try { laterAt = Number(localStorage.getItem(NICK_LATER_KEY)) || 0; } catch { /* ignore */ }
+  if (Date.now() - laterAt > 3 * 24 * 3600 * 1000) nicknamePromptOpen.value = true;
+}
+function nicknameLater() {
+  nicknamePromptOpen.value = false;
+  try { localStorage.setItem(NICK_LATER_KEY, String(Date.now())); } catch { /* ignore */ }
+}
 const rulesModalConv = ref(null);
 const addGroupModalOpen = ref(false);
 
@@ -39,13 +66,19 @@ const inDesktop = computed(() => typeof window !== 'undefined' && Boolean(window
 
 let pollTimer = null;
 let toastSeq = 0;
+const toastTimers = new Set();
+let request;
+let disposed = false;
+let pollInterval = 5000;
 
 function showToast(text, kind = 'info') {
   const id = ++toastSeq;
   toasts.value.push({ id, text, kind });
-  setTimeout(() => {
+  const timer = setTimeout(() => {
+    toastTimers.delete(timer);
     toasts.value = toasts.value.filter(item => item.id !== id);
   }, 3600);
+  toastTimers.add(timer);
 }
 
 const activePendingTasks = computed(() =>
@@ -107,20 +140,32 @@ const qqBanner = computed(() => {
   return null;
 });
 
+function schedulePoll() {
+  if (disposed) return;
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(() => {
+    if (document.hidden) schedulePoll();
+    else refresh(true);
+  }, pollInterval);
+}
+
 async function refresh(silent = false) {
+  if (disposed) return;
+  clearTimeout(pollTimer);
+  request?.abort();
+  const current = request = new AbortController();
   try {
-    const useCompact = view.value !== 'messages';
-    const data = await api(useCompact ? '/api/state?compact=1' : '/api/state');
+    const path = view.value === 'messages' ? '/api/state' : '/api/state?compact=1';
+    const data = await api(path, undefined, 'GET', current.signal);
+    if (current.signal.aborted) return;
     state.value = data;
     loadError.value = '';
-    const interval = data?.settings?.ui?.refreshIntervalMs || 5000;
-    if (!pollTimer) {
-      pollTimer = setInterval(() => {
-        if (!document.hidden) refresh(true);
-      }, interval);
-    }
+    checkOnboarding(data);
+    pollInterval = data?.settings?.ui?.refreshIntervalMs || 5000;
   } catch (err) {
-    if (!silent || !state.value) loadError.value = err.message;
+    if (!current.signal.aborted && (!silent || !state.value)) loadError.value = err.message;
+  } finally {
+    if (request === current) schedulePoll();
   }
 }
 
@@ -156,8 +201,21 @@ async function openMiniWidget() {
   }
 }
 
+async function toggleDesktopPet() {
+  try {
+    await window.pywebview?.api?.toggle_pet();
+  } catch {
+    showToast('无法切换日历桌宠', 'error');
+  }
+}
+
 onMounted(() => { refresh(false); });
-onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
+onUnmounted(() => {
+  disposed = true;
+  request?.abort();
+  clearTimeout(pollTimer);
+  toastTimers.forEach(clearTimeout);
+});
 </script>
 
 <template>
@@ -249,6 +307,18 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
               <span class="nav-label">桌面小便签</span>
             </button>
 
+            <button v-if="inDesktop" class="nav-item" @click="toggleDesktopPet" title="显示或隐藏桌面日历小助手">
+              <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4" y="6" width="16" height="14" rx="3" />
+                <path d="M8 3.5v4M16 3.5v4M4 10.5h16" />
+                <circle cx="9.5" cy="14.5" r="1" fill="currentColor" stroke="none" />
+                <circle cx="14.5" cy="14.5" r="1" fill="currentColor" stroke="none" />
+                <path d="M10.5 17.2c.9.7 2.1.7 3 0" />
+              </svg>
+              <span class="nav-label">日历小助手</span>
+              <span class="nav-pill pill-lav">桌宠</span>
+            </button>
+
             <button class="nav-item" @click="profileModalOpen = true">
               <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="12" cy="8" r="3.8" />
@@ -259,6 +329,9 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
           </div>
         </div>
       </div>
+
+      <!-- 桌宠小屋：等级称号、饱腹 / 心情 / 成长、零食罐 -->
+      <PetCareCard v-if="state?.petCare" :state="state" @refresh="refresh(true)" @toast="showToast" />
 
       <!-- 底部胶带手绘状态便签 -->
       <div v-if="state" class="sidebar-sticky-note">
@@ -351,6 +424,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
             @refresh="refresh(true)"
             @navigate="v => navigate(v)"
             @toast="showToast"
+            @open-onboarding="onboardingOpen = true"
           />
         </template>
       </div>
@@ -395,6 +469,22 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer); });
     <AddGroupModal
       v-if="addGroupModalOpen"
       @close="addGroupModalOpen = false"
+      @saved="refresh(true)"
+      @toast="showToast"
+    />
+
+    <OnboardingWizard
+      v-if="onboardingOpen && state"
+      :state="state"
+      @close="onboardingOpen = false"
+      @refresh="refresh(true)"
+      @toast="showToast"
+    />
+
+    <NicknamePrompt
+      v-if="nicknamePromptOpen && !onboardingOpen"
+      @close="nicknamePromptOpen = false"
+      @later="nicknameLater"
       @saved="refresh(true)"
       @toast="showToast"
     />

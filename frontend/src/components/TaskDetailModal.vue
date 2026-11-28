@@ -1,7 +1,7 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { api } from '../api.js';
-import { formatTime, formatDue } from '../utils/format.js';
+import { formatTime, formatDue, inferTaskObligation } from '../utils/format.js';
 
 const props = defineProps({
   taskId: { type: String, default: '' },
@@ -43,7 +43,7 @@ async function loadTask() {
       title: data.task.title || '',
       dueDate: data.task.dueDate || '',
       dueTime: data.task.dueTime || '',
-      obligation: data.task.obligation || 'required',
+      obligation: inferTaskObligation(data.task),
       relevance: data.task.relevance || 'mine',
       status: data.task.status || 'pending',
       description: data.task.description || ''
@@ -57,6 +57,9 @@ async function loadTask() {
 }
 
 watch(() => [props.taskId, props.mode], loadTask, { immediate: true });
+
+// 编辑一条已经是必做的事项时，分级锁定为必做
+const lockedRequired = computed(() => props.mode === 'edit' && !!task.value && inferTaskObligation(task.value) === 'required');
 
 async function submit() {
   if (!form.value.title.trim()) {
@@ -130,9 +133,10 @@ async function submit() {
         <div class="field-row">
           <label class="field">
             <span class="field-label">优先分级</span>
-            <select v-model="form.obligation" class="select">
+            <!-- 已是必做的不能手动降级为普通通知 -->
+            <select v-model="form.obligation" class="select" :disabled="lockedRequired" :title="lockedRequired ? '必做事项不能手动降级为普通通知' : ''">
               <option value="required">⚡ 必须完成 · 必做事项</option>
-              <option value="optional">📌 普通通知 · 活动选修</option>
+              <option v-if="!lockedRequired" value="optional">📌 普通通知 · 活动选修</option>
             </select>
           </label>
           <label class="field">

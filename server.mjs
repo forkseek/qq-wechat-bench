@@ -99,7 +99,9 @@ function assembleApp({ options, settings, dataDir, connection, capture, captureF
 
   function state({ compact = false } = {}) {
     const allConversations = store.conversations();
-    return { settings: publicSettings(settings), profile: store.profile(), model: publicModel(config), capture, connection: store.bridge(), qq: qqSnapshot(),
+    return { settings: publicSettings(settings), profile: store.profile(), companion: store.companion(), onboarding: store.onboarding(),
+      petCare: store.petCare(),
+      model: publicModel(config), capture, connection: store.bridge(), qq: qqSnapshot(),
       wechat: messaging.wechatStatus, accounts: store.accounts(), maintenance: { config: maintenance.config, active: [...maintenance.active.keys()] },
       autostart: autostartEnabled(startupDir), logging: log.status(), runs: store.runs(5), pendingCount: store.pendingCount(),
       conversationCount: allConversations.length,

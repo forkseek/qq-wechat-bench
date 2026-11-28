@@ -324,9 +324,11 @@ function drawSettings() {
     `<div><label class="field-label" for="model-name">模型名称</label><input id="model-name" name="name" required maxlength="150" value="${safe(model.name || defaults.name)}"></div></div>` +
     `<label class="field-label" for="model-base">服务地址</label><input id="model-base" name="baseUrl" required maxlength="300" value="${safe(model.baseUrl || defaults.baseUrl)}">` +
     `<label class="field-label" for="model-key">API Key</label><input id="model-key" name="key" type="password" autocomplete="off" maxlength="500" placeholder="${model.hasKey ? '已保存，不修改请留空' : '在服务商控制台创建后粘贴到这里'}">` +
-    `<label class="check-row"><input type="checkbox" name="enabled" ${model.enabled || !model.baseUrl ? 'checked' : ''}> 启用 AI 整理</label>` +
+    `<label class="check-row"><input type="checkbox" name="enabled" ${model.enabled ? 'checked' : ''}> 启用 AI 整理</label>` +
+    `<label class="check-row"><input type="checkbox" name="allowCloud" ${model.allowCloud ? 'checked' : ''}> 允许当前云端服务接收已关注会话的内容</label>` +
+    `<label class="check-row"><input type="checkbox" name="clearKey"> 清除已保存的模型密钥</label>` +
     '<p id="model-test-result" class="inline-note" role="status"></p><div class="dialog-actions"><button class="button secondary" type="button" data-action="test-model">测试连接</button><button class="button" type="submit">保存</button></div></form>' +
-    '<p class="inline-note">保存后立即生效，已关注会话里尚未整理的消息会自动开始整理。所关注群的文字会发送给该服务；Key 保存在本机 data/model.json。</p></section>' +
+    '<p class="inline-note">保存后立即生效，已关注会话里尚未整理的消息会自动开始整理。允许云端服务时会发送聊天文字、发送者和待办上下文。密钥由 Windows 当前用户保护。</p></section>' +
     `<section class="content-card"><h2>开机自启</h2><div class="settings-row"><span>${state.data.autostart ? '已开启：登录 Windows 后，工作台会在后台自动启动；QQ 采集开着时也会一并启动，自动补拉和 AI 整理不需要手动操作。' : '未开启：开机后需要手动双击“打开工作台.cmd”，工作台没运行时不会拉补。'}</span>` +
     `<button class="button ${state.data.autostart ? 'secondary' : ''}" data-action="toggle-autostart">${state.data.autostart ? '关闭' : '开启'}</button></div></section>` +
     '<p class="inline-note">消息、任务和规则都保存在本机 data/workbench.sqlite，停止服务后仍会保留。</p>';
@@ -364,7 +366,8 @@ function sourceLine(source) {
 }
 function modelValues() {
   const field = name => $('#model-form').elements.namedItem(name);
-  return { baseUrl: field('baseUrl').value.trim(), name: field('name').value.trim(), key: field('key').value.trim(), enabled: field('enabled').checked };
+  return { baseUrl: field('baseUrl').value.trim(), name: field('name').value.trim(), key: field('key').value.trim(), enabled: field('enabled').checked,
+    allowCloud: field('allowCloud').checked, clearKey: field('clearKey').checked };
 }
 
 // 进场动画只在切换页面、筛选时播放；自动刷新的重绘不重播。
@@ -612,7 +615,14 @@ async function slowAction(button, action) {
 }
 
 $('#profile-button').addEventListener('click', showProfile);
+function resetModelAuthorization(form) {
+  form.elements.namedItem('allowCloud').checked = false;
+  form.elements.namedItem('clearKey').checked = false;
+  form.elements.namedItem('key').value = '';
+}
+
 document.addEventListener('input', event => {
+  if (event.target.id === 'model-base') resetModelAuthorization(event.target.form);
   if (event.target.id === 'task-search') { state.search = event.target.value; drawMain().catch(error => toast(error.message)); }
   if (event.target.closest('#model-form')) $('#model-form').dataset.dirty = '1';
   if (event.target.closest('#maintenance-form')) $('#maintenance-form').dataset.dirty = '1';
@@ -639,6 +649,7 @@ document.addEventListener('change', async event => {
       updateSelection(); return;
     }
     if (event.target.id === 'model-preset') {
+      resetModelAuthorization(event.target.form);
       $('#model-form').dataset.dirty = '1';
       const preset = modelPresets().find(value => value.id === event.target.value);
       if (preset) { $('#model-base').value = preset.baseUrl; $('#model-name').value = preset.name; }

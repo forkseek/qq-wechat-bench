@@ -65,7 +65,9 @@ def health(port):
 
 
 def find_node():
-    node = shutil.which('node')
+    # 免安装包自带 runtime\node\node.exe，优先用它
+    bundled = ROOT / 'runtime' / 'node' / 'node.exe'
+    node = str(bundled) if bundled.is_file() else shutil.which('node')
     if not node:
         fail('没有找到 Node.js，请先安装 Node.js 24 或更高版本。')
     version = subprocess.run([node, '--version'], capture_output=True, text=True).stdout.strip()

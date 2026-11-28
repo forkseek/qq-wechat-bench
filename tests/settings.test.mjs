@@ -83,6 +83,18 @@ test('已保存模型配置损坏时停用 AI，不切换到环境变量中的�
   assert.equal(loadModelConfig(file, env).configured, true);
 });
 
+test('旧明文云端配置原位迁移为加密且需重新授权', { skip: process.platform !== 'win32' }, t => {
+  const file = path.join(directory(t), 'model.json');
+  fs.writeFileSync(file, JSON.stringify({ enabled: true, baseUrl: 'https://example.invalid', name: 'fixture', key: 'fixture-legacy-key' }));
+  const config = loadModelConfig(file);
+  assert.equal(config.configured, false);
+  assert.equal(config.key, 'fixture-legacy-key');
+  const serialized = fs.readFileSync(file, 'utf8');
+  assert.equal(serialized.includes('fixture-legacy-key'), false);
+  assert.ok(JSON.parse(serialized).protectedKey);
+  assert.equal(loadModelConfig(file).key, 'fixture-legacy-key');
+});
+
 test('采集配置损坏时不打开数据库，避免以意外范围启动', t => {
   const dir = directory(t); fs.writeFileSync(path.join(dir, 'capture.json'), '{broken');
   assert.throws(() => createApp({ dataDir: dir, supervise: false }), /采集范围/);
